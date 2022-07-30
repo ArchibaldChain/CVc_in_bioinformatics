@@ -3,14 +3,14 @@ import pandas as pd
 from scipy.sparse.csgraph import structural_rank
 import matplotlib.pyplot as plt
 
-from FAST_LMM import FASTLMM 
+from FAST_LMM import FASTLMM
 # import FAST.FAST_LMM
 
 np.random.seed(5)
-X = np.random.sample(size = [10, 5])
+X = np.random.sample(size=[10, 5])
 print(structural_rank(X))
 y = np.random.sample([10])
-f = FASTLMM(sparse = False, REML=True)
+f = FASTLMM(sparse=True, REML=True)
 
 
 f.fit(X, y)
@@ -29,7 +29,6 @@ x_ = np.log10(deltas)
 plt.plot(x_, negative_LL_values)
 plt.show()
 
-x, funs = f._optimization(neg_LL)
-print(x)
-print(funs)
-
+# x, funs = f._optimization(neg_LL)
+# print(x)
+# print(funs)
