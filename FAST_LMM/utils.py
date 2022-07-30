@@ -20,12 +20,3 @@ def inv(matrix):
         inv_mat = pinv(matrix)
     finally:
         return inv_mat
-
-
-def test():
-    m = np.array([[1, 0, 3], [0, 0, 0]])
-    print(issparse(m))
-
-
-if __name__ == '__main__':
-    test()

@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 from FAST_LMM import FASTLMM
 # import FAST.FAST_LMM
 
+n, p = 100, 5
 np.random.seed(5)
-X = np.random.sample(size=[10, 5])
-print(structural_rank(X))
-y = np.random.sample([10])
-f = FASTLMM(sparse=True, REML=True)
+X = np.random.normal(0, 1, size=[n, p])
+
+y = np.random.normal(0, 5, n)
+f = FASTLMM(sparse=False, REML=False)
 
 
 f.fit(X, y)
