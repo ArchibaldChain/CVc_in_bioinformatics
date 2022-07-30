@@ -68,13 +68,11 @@ class FASTLMM:
         beta_function of delta
         '''
 
-        # some assoication of matrix multiplication, for computaion simplicity
         UTX = self.U.T @ self.X
-        # S_plus_delta_inv = np.diag(1 / (self.S + delta))
 
         if self.sparse:
             n = self.X.shape[0]
-            # temp1 = UTX.T @ S_plus_delta_inv @ UTX
+
             print('debug ***********************')
             print(type(delta), type(self.S))
             temp1 = UTX.T / (self.S + delta) @ UTX
@@ -87,8 +85,7 @@ class FASTLMM:
 
         else:
             inversepart = UTX.T / (self.S + delta) @ UTX
-            # beta = u.inv(inversepart) @ \
-            #     (UTX.T @ S_plus_delta_inv @ self.U.T @ self.y)
+
             beta = u.inv(inversepart) @ \
                 (UTX.T / (self.S + delta) @ self.U.T @ self.y)
 
@@ -98,13 +95,11 @@ class FASTLMM:
         '''
         Sigma_g2 function of delta
         '''
-        # S_plus_delta_inv = np.diag(1 / (self.S + delta))
         n, d = self.X.shape
 
         temp1 = self.U.T @ self.y - \
             self.U.T @ self.X @ self._beta(delta)
-        # sigma_g2 = 1/n * (temp1.T @ S_plus_delta_inv @ temp1)
-        # using Numpy Trick
+
         sigma_g2 = 1/n * np.sum(temp1.T ** 2/(self.S + delta))
 
         if self.sparse:
@@ -125,7 +120,6 @@ class FASTLMM:
         log likehood function of delta
         '''
         n = self.X.shape[0]
-        # S_plus_delta_inv = np.diag(1 / (self.S + delta))
 
         UTy_minus_UTXbeta = self.U.T @ self.y - \
             self.U.T @ self.X @ self._beta(delta)
@@ -142,18 +136,16 @@ class FASTLMM:
                     np.sum(np.square(y_UUTY_X_UUTXbeta)) / delta
                 ))
             )
-            # changed using column wise dividing
         else:
             LL = -1/2 * (
                 n*np.log(2*np.pi) + np.sum(np.log(self.S + delta)) + n +
                 n * np.log(
                     1/n * np.sum((UTy_minus_UTXbeta**2)/(self.S + delta))
                 )
-            )  # using Numpy Trick
+            )
         return LL.squeeze()
 
     def _restricted_log_likelihood(self, delta):
-        # S_plus_delta_inv = np.diag(1 / (self.S + delta))
         n, d = self.X.shape
 
         if self.sparse:
@@ -174,13 +166,6 @@ class FASTLMM:
                 np.log(det((self.U.T@self.X).T / (self.S + delta)
                            @ (self.U.T@self.X)))
             )
-
-        # beta = self._beta(delta)
-
-        # V_inv = self.U.T @ S_plus_delta_inv @ self.U
-        # temp = (self.y - self.X) @ beta
-        # REMLL = self._log_likelhood_delta(delta) - \
-        #     1/2 * ( np.log(det(V_inv)) + temp.T @ V_inv @ temp)
 
         if REMLL.shape == (1, 1):
             REMLL = REMLL.reshape((1,))
@@ -229,20 +214,6 @@ class FASTLMM:
         x = minimize_result.x
         minimize_value = minimize_result.fun
         return x, minimize_value
-
-    def _inv(self, Matrix):
-        try:
-            inv_mat = inv(Matrix)
-        except LinAlgError as lae:
-            if str(lae) != "Singular matrix":
-                print('Determint is {}'.format(det(Matrix)))
-                print('shape is {}'.format(Matrix.shape))
-                raise lae
-
-            print('Singluar Matrix')
-            inv_mat = pinv(Matrix)
-        finally:
-            return inv_mat
 
     def test(self, d):
         print('testing')
