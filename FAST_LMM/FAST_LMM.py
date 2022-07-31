@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
-from scipy.sparse.csgraph import structural_rank
 from numpy.linalg import matrix_rank
 from scipy.linalg import svd
 from scipy.sparse.linalg import svds
@@ -22,58 +20,97 @@ class FASTLMM:
     S = None  # eigenvalues array of K
     delta = None  # temporary delta for efficiency
 
-    def __init__(self, sparse=False, REML=False):
-        self.sparse = sparse
+    def __init__(self, lowRank=False, REML=False):
+        print('FAST-LMM')
+        print('--------------------------------')
+        if REML:
+            print('setting LowRank is {}, using REML'.format(lowRank))
+        else:
+            print('setting LowRank is {}, not using REML'.format(lowRank))
+
+        self.lowRank = lowRank
         self.REML = REML
 
     def fit(self, X, y, W=None):
         self.X = np.array(X).astype('float64')
         self.y = np.array(y).reshape([-1, 1])
-        n, d = self.X.shape
-        self.K = 1/d * self.X @ self.X.T
-        Xcopy = self.X.copy()
-        if self.sparse:
-            if not u.issparse(X):
-                warnings.warn('X is set as sparse, but actually not sparse.')
-            self.rank = matrix_rank(Xcopy)
 
-            print('rank of X is {}'.format(self.rank))
-            if self.rank >= min(X.shape):
-                warnings.warn(
-                    'The rank of X is equal to the min of shape of X, so set sparse as False.')
-                self.sparse = False
-                U, S, _ = svd(Xcopy, overwrite_a=True)
+        d = X.shape[1]
+        # ussually K = W.T @ W
+        # or K = 1/d * X.T @ X
+        # so we can set W = 1/ sqrt(d) * X
+        if W is None:
+            W = 1 / np.sqrt(d) * X.copy()
+
+        n, sc = W.shape
+        print(y.shape)
+        if (n != X.shape[0]) or (n != self.y.shape[0]) or (self.y.shape[1]) > 1:
+            raise ValueError(
+                'Incompatible shape of X(shape of {}), y(shape of {}) and w(shape of {}).'
+                .format(X.shape, self.y.shape, W.shape)
+            )
+
+        K = W @ W.T
+        self.K = K.copy()
+        self.rank = matrix_rank(K)
+        print('Rank of W is {}, shape of W is {}.'.format(self.rank, W.shape))
+
+        # if rank of W is much smaller than n or sc, then we set lowRank True
+        if self.rank < n:
+            if not self.lowRank:
+                warnings.warn('W is set lowRank False, but actually lowRank.')
+
+                # incase that set lowRank is False
+                U, S, _ = svd(K, overwrite_a=True)
+                # setting the last n - sc eigenvalues as 0
+                S[self.rank:] = 0
             else:
-                U, S, _ = svds(Xcopy, self.rank)
-        else:
-            if u.issparse(X):
-                warnings.warn(
-                    "X is not set as sparse, but actually sparse.")
-            U, S, _ = svd(Xcopy, overwrite_a=True)
+                if self.rank < min(sc, n):
+                    # in case the rank smaller than min(n, sc)
+                    U, S, _ = svds(K, self.rank)
+                else:
+                    # in case the rank equals to the # of matrix columns
+                    U, S, _ = svd(K, overwrite_a=True)
+                    U = U[:, :self.rank]
+                    S = S[: self.rank]
 
-        self.U = U
+        # if rank of W is not much smaller(2/3) than n or sc, then we set lowRank False
+        else:
+            if self.lowRank:
+                warnings.warn(
+                    "W is set as lowRank, but actually not lowRank.")
+            self.lowRank = False
+            U, S, _ = svd(K, overwrite_a=True)
+
+        print(S)
 
         # check if S is a matrix
         if S.ndim > 1:
             S = np.diag(S)
 
-        # in case that U.shape[1] > S.shape[0]
-        k = U.shape[1]
-        if len(S) < k:
-            S = np.concatenate([S, np.zeros(k - len(S))])
+        # in case that length of S is smaller than the columns of U
+        # This only will happen when W is lowRank but set as not LowRank
+        if len(S) < U.shape[1]:
+            S = np.concatenate([S, np.zeros(U.shape[1] - len(S))])
 
-        self.S = 1/d * S ** 2
+        self.U = U
+        self.S = S ** 2
+        print('see what happened here!!!!')
+        # print(self.S)
+        print(self.U.shape)
         self._buffer_preCalculation()
 
     def _buffer_preCalculation(self):
         n, _ = self.X.shape
         self.UTX = self.U.T @ self.X
         self.UTy = self.U.T @ self.y
-        self.I_minus_UUT = np.identity(n) - self.U @ self.U.T
-        self.I_minus_UUT_X = self.I_minus_UUT @ self.X
-        self.I_minus_UUT_y = self.I_minus_UUT @ self.y
-        self.I_UUTX_sq = self.I_minus_UUT_X.T @ self.I_minus_UUT_X
-        self.I_UUTX_I_UUTy = self.I_minus_UUT_X.T @ self.I_minus_UUT_y
+
+        if self.lowRank:
+            self.I_minus_UUT = np.identity(n) - self.U @ self.U.T
+            self.I_minus_UUT_X = self.I_minus_UUT @ self.X
+            self.I_minus_UUT_y = self.I_minus_UUT @ self.y
+            self.I_UUTX_sq = self.I_minus_UUT_X.T @ self.I_minus_UUT_X
+            self.I_UUTX_I_UUTy = self.I_minus_UUT_X.T @ self.I_minus_UUT_y
 
     def _buffer_preCalculation_with_delta(self, delta):
         '''
@@ -82,25 +119,30 @@ class FASTLMM:
         This function is meant to calculate these pieces in advance to save some time.
         '''
         self.delta = delta
-        self.UTXT_inv_S_delta_UTX = \
-            (self.UTX).T / (self.S + delta) @ (self.UTX)
-        self.UTXT_inv_S_delta_UTy = \
-            (self.UTX).T / (self.S + delta) @ (self.UTy)
         self.beta_delta = self._beta(delta)
+
         self.UTy_minus_UTXbeta = self.UTy - self.UTX @ self.beta_delta
-        self.I_UUTy_minus_I_UUTXbeta = self.I_minus_UUT_y - \
-            self.I_minus_UUT_X @ self.beta_delta
+
+        # already calculated in _beta
+        # self.UTXT_inv_S_delta_UTX = \
+        #     (self.UTX).T / (self.S + delta) @ (self.UTX)
+        # self.UTXT_inv_S_delta_UTy = \
+        #     (self.UTX).T / (self.S + delta) @ (self.UTy)
+
+        if self.lowRank:
+            self.I_UUTy_minus_I_UUTXbeta = self.I_minus_UUT_y - \
+                self.I_minus_UUT_X @ self.beta_delta
 
     def _beta(self, delta):
         '''
         beta_function of delta
         '''
+        self.UTXT_inv_S_delta_UTX = \
+            (self.UTX).T / (self.S + delta) @ (self.UTX)
+        self.UTXT_inv_S_delta_UTy = \
+            (self.UTX).T / (self.S + delta) @ (self.UTy)
 
-        # Update buffer
-        if delta != self.delta:
-            self._buffer_preCalculation_with_delta(delta)
-
-        if self.sparse:
+        if self.lowRank:
             inversepart = self.UTXT_inv_S_delta_UTX +\
                 1/delta * self.I_minus_UUT_X.T @ self.I_minus_UUT_X
             beta = u.inv(inversepart) @\
@@ -126,7 +168,7 @@ class FASTLMM:
 
         sigma_g2 = 1/n * np.sum(self.UTy_minus_UTXbeta ** 2/(self.S + delta))
 
-        if self.sparse:
+        if self.lowRank:
 
             sigma_g2 += 1/n * 1/delta * \
                 np.sum(self.I_UUTy_minus_I_UUTXbeta ** 2)
@@ -149,7 +191,7 @@ class FASTLMM:
 
         n = self.X.shape[0]
 
-        if self.sparse:
+        if self.lowRank:
             k = self.rank
             LL = -1/2 * (
                 n*np.log(2*np.pi) + np.sum(np.log(self.S + delta)) +
@@ -178,7 +220,7 @@ class FASTLMM:
 
         n, d = self.X.shape
 
-        if self.sparse:
+        if self.lowRank:
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
                 d * np.log(2*np.pi * self._sigma_g2(delta)) -

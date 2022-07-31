@@ -28,13 +28,13 @@ class FASTLMM:
         self.sparse = sparse
         self.REML = REML
 
-    def fit(self, X, y, w = None):
+    def fit(self, X, y, w=None):
         self.X = np.array(X).astype('float64')
         self.y = np.array(y).reshape([-1, 1])
         n, d = self.X.shape
         self.K = 1/d * self.X @ self.X.T
         if self.sparse:
-            if issparse(X):
+            if issparse(K):
                 if not self.sparse:
                     raise warnings.warn('X is sparse.')
                 self.rank = structural_rank(X)
@@ -77,11 +77,11 @@ class FASTLMM:
             n = self.X.shape[0]
             temp1 = UTX.T @ S_plus_delta_inv @ UTX
             temp2 = np.identity(n) - self.U @ self.U.T
-            temp3 = (temp2 @ self.X).T 
+            temp3 = (temp2 @ self.X).T
             inversepart = temp1 + 1/delta * temp3 @ temp3.T
             beta = self._inv(inversepart) @\
-                (UTX.T @ S_plus_delta_inv@ (self.U.T @self.y) 
-                + 1/delta * temp3 @ temp2 @ self.y)
+                (UTX.T @ S_plus_delta_inv @ (self.U.T @ self.y)
+                 + 1/delta * temp3 @ temp2 @ self.y)
 
         else:
             inversepart = UTX.T @ S_plus_delta_inv @ UTX
@@ -95,7 +95,7 @@ class FASTLMM:
         Sigma_g2 function of delta
         '''
         S_plus_delta_inv = np.diag(1 / (self.S + delta))
-        n,d = self.X.shape
+        n, d = self.X.shape
 
         temp1 = self.U.T @ self.y - \
             self.U.T @ self.X @ self._beta(delta)
@@ -104,11 +104,11 @@ class FASTLMM:
         if self.sparse:
             temp2 = (np.identity(n) - self.U @ self.U.T)@self.y - \
                 (np.identity(n) - self.U @ self.U.T)@self.X @ self._beta(delta)
-            
+
             sigma_g2 += 1/n * 1/delta * (temp2.T @ temp2)
             if self.REML:
-                pass # waiting to implement
-        
+                pass  # waiting to implement
+
         elif self.REML:
             sigma_g2 = sigma_g2 * n / (n-d)
 
@@ -123,7 +123,7 @@ class FASTLMM:
 
         UTy_minus_UTXbeta = self.U.T @ self.y - \
             self.U.T @ self.X @ self._beta(delta)
-        y_UUTY_X_UUTXbeta = self.y - self.U @ (self.U.T @self.y) - \
+        y_UUTY_X_UUTXbeta = self.y - self.U @ (self.U.T @ self.y) - \
             (self.X - self.U @ (self.U.T @ self.X)) @ self._beta(delta)
 
         if self.sparse:
@@ -149,24 +149,24 @@ class FASTLMM:
         n, d = self.X.shape
 
         if self.sparse:
-            I_UUTX = (np.identity(n) - self.U @ self.U.T)@ self.X
+            I_UUTX = (np.identity(n) - self.U @ self.U.T) @ self.X
             temp = I_UUTX.T @ I_UUTX
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
                 d * np.log(2*np.pi * self._sigma_g2(delta)) -
                 np.log(
                     det((self.U.T@self.X).T @
-                           S_plus_delta_inv @ (self.U.T@self.X) + temp/delta
-                           ))
-                )
+                        S_plus_delta_inv @ (self.U.T@self.X) + temp/delta
+                        ))
+            )
         else:
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
                 d * np.log(2*np.pi * self._sigma_g2(delta)) -
-                np.log(det((self.U.T@self.X).T @ 
-                              S_plus_delta_inv @ (self.U.T@self.X)))
+                np.log(det((self.U.T@self.X).T @
+                           S_plus_delta_inv @ (self.U.T@self.X)))
             )
-            
+
             # beta = self._beta(delta)
 
             # V_inv = self.U.T @ S_plus_delta_inv @ self.U
@@ -174,22 +174,22 @@ class FASTLMM:
             # REMLL = self._log_likelhood_delta(delta) - \
             #     1/2 * ( np.log(det(V_inv)) + temp.T @ V_inv @ temp)
 
-        if REMLL.shape == (1, 1): 
+        if REMLL.shape == (1, 1):
             REMLL = REMLL.reshape((1,))
-        
+
         return REMLL
 
     def _neg_cover(self):
         if self.REML:
-            neg_LL = lambda d: -self._restricted_log_likelihood(d)
+            def neg_LL(d): return -self._restricted_log_likelihood(d)
         else:
-            neg_LL = lambda d: -self._log_likelhood_delta(d)
+            def neg_LL(d): return -self._log_likelhood_delta(d)
 
         return neg_LL
 
     def _optimization(self, fun):
         # Using - 'brent' method for optimization
-        
+
         deltas = np.logspace(-10, 10, 21)
 
         local_minimums = []
@@ -197,19 +197,20 @@ class FASTLMM:
         for i in range(len(deltas) - 1):
             # bracket = opt.bracket(fun, xa = deltas[i], xb = deltas[i+1])
             bounds = (deltas[i], deltas[i+1])
-            minimize_result = opt.minimize_scalar(fun, bounds=bounds, method='bounded')
+            minimize_result = opt.minimize_scalar(
+                fun, bounds=bounds, method='bounded')
             x = minimize_result.x
             funs = minimize_result.fun
             print(x, bounds)
-            if (type(x) != np.ndarray ):
+            if (type(x) != np.ndarray):
                 local_minimums.append(x)
             else:
                 local_minimums += x.tolist()
-            if (type(fun) != np.ndarray ):
+            if (type(fun) != np.ndarray):
                 minimum_values.append(funs)
             else:
                 minimum_values += funs.tolist()
-        
+
         min_value = min(minimum_values)
         # minmums = [local_minimums[i] for i, v in enumerate(minimum_values) if v == min_value]
         minmum = local_minimums[minimum_values.index(min_value)]
@@ -220,8 +221,6 @@ class FASTLMM:
         x = minimize_result.x
         minimize_value = minimize_result.fun
         return x, minimize_value
-
-
 
     def _inv(self, Matrix):
         print('call inv')
@@ -237,14 +236,12 @@ class FASTLMM:
             inv_mat = pinv(Matrix)
         finally:
             return inv_mat
-            
 
-    def test(self,d):
+    def test(self, d):
         # print('testing')
         # print('beta is {}'.format(self._beta(d)))
         # print('sigma g2 is {}'.format(self._sigma_g2(d)))
         # print('liklihood is {}'.format(self._log_likelhood_delta(d)))
-        print('restricted liklihood is {}'.format(self._restricted_log_likelihood(d)))
+        print('restricted liklihood is {}'.format(
+            self._restricted_log_likelihood(d)))
         print('end of testing')
-
-
