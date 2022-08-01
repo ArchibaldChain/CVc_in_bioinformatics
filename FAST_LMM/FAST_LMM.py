@@ -22,11 +22,11 @@ class FASTLMM:
 
     def __init__(self, lowRank=False, REML=False):
         print('FAST-LMM')
-        print('--------------------------------')
+        print('------------------------------------')
         if REML:
-            print('setting LowRank is {}, using REML'.format(lowRank))
+            print('LowRank is set as {}, using REML'.format(lowRank))
         else:
-            print('setting LowRank is {}, not using REML'.format(lowRank))
+            print('LowRank is set as {}, not using REML'.format(lowRank))
 
         self.lowRank = lowRank
         self.REML = REML
@@ -36,7 +36,7 @@ class FASTLMM:
         self.y = np.array(y).reshape([-1, 1])
 
         d = X.shape[1]
-        # ussually K = W.T @ W
+        # K = W.T @ W
         # or K = 1/d * X.T @ X
         # so we can set W = 1/ sqrt(d) * X
         if W is None:
@@ -55,37 +55,32 @@ class FASTLMM:
         self.rank = matrix_rank(K)
         print('Rank of W is {}, shape of W is {}.'.format(self.rank, W.shape))
 
-        # if rank of W is much smaller than n or sc, then we set lowRank True
-        if self.rank < n:
-            if not self.lowRank:
+        if self.lowRank:
+            if self.rank == max(n, sc):
+                warnings.warn("W is set as lowRank, but actually not lowRank.")
+                self.lowRank = False
+
+            if self.rank < min(n, sc):
+                # in case the rank smaller than min(n, sc)
+                U, S, _ = svds(K, self.rank)
+            else:
+                # in case the rank larger than n or sc
+                U, S, _ = svd(K, overwrite_a=True)
+                U = U[:, :self.rank]
+                S = S[: self.rank]
+        else:
+            if self.rank < max(n, sc):
                 warnings.warn('W is set lowRank False, but actually lowRank.')
 
-                # incase that set lowRank is False
-                U, S, _ = svd(K, overwrite_a=True)
-                # setting the last n - sc eigenvalues as 0
-                S[self.rank:] = 0
-            else:
-                if self.rank < min(sc, n):
-                    # in case the rank smaller than min(n, sc)
-                    U, S, _ = svds(K, self.rank)
-                else:
-                    # in case the rank equals to the # of matrix columns
-                    U, S, _ = svd(K, overwrite_a=True)
-                    U = U[:, :self.rank]
-                    S = S[: self.rank]
-
-        # if rank of W is not much smaller(2/3) than n or sc, then we set lowRank False
-        else:
-            if self.lowRank:
-                warnings.warn(
-                    "W is set as lowRank, but actually not lowRank.")
-            self.lowRank = False
+            # incase that set lowRank is False
             U, S, _ = svd(K, overwrite_a=True)
-
-        print(S)
+            # setting the last n - sc eigenvalues as 0
+            S[self.rank:] = 0
 
         # check if S is a matrix
         if S.ndim > 1:
+            print('Get 2d S')
+            print(S)
             S = np.diag(S)
 
         # in case that length of S is smaller than the columns of U
@@ -95,9 +90,6 @@ class FASTLMM:
 
         self.U = U
         self.S = S ** 2
-        print('see what happened here!!!!')
-        # print(self.S)
-        print(self.U.shape)
         self._buffer_preCalculation()
 
     def _buffer_preCalculation(self):
@@ -112,9 +104,57 @@ class FASTLMM:
             self.I_UUTX_sq = self.I_minus_UUT_X.T @ self.I_minus_UUT_X
             self.I_UUTX_I_UUTy = self.I_minus_UUT_X.T @ self.I_minus_UUT_y
 
+        if self.REML:
+            self.log_XTX = np.log(det(self.X.T @ self.X))
+
+    def testing_sigmag2(self, delta):
+        U = self.U
+        U1 = self.U[:, :self.rank]
+        U2 = self.U[:, :self.rank]
+        S1 = self.S[:self.rank]
+        # Update buffer
+        if delta != self.delta:
+            self._buffer_preCalculation_with_delta(delta)
+
+        a = self.y - self.X @ self.beta_delta
+        test1 = (U.T @ a).T @ u.inv(np.diag(self.S + delta)) @  (U.T @ a)
+        test2 = (U1.T @ a).T @ u.inv(np.diag(S1 + delta)) @ (U1.T @ a) +\
+            (U2.T @ a) ** 2 / delta
+        print('if difference???')
+        print(np.sum((test1 - test2)**2))
+
+        n, d = self.X.shape
+
+        temp = U.T@(self.y - self.X @ self.beta_delta).squeeze()
+        print(self.y.shape)
+        print(temp.shape)
+        sigma_g2 = 1/n * \
+            np.sum(temp
+                   ** 2/(self.S + delta))
+
+        sigma_g22 = 1/n * \
+            np.sum(temp.T @ u.inv(np.diag(self.S + delta)) @ temp)
+
+        print('sigma_g2:', sigma_g2, 'sigma_g22:', sigma_g22)
+
+        sigma_temp = 1/n * \
+            np.sum((U1.T@(self.y - self.X @ self.beta_delta))
+                   ** 2/(self.S[:self.rank] + delta))
+        I_minus_U1U1t = np.identity(n) - U1 @ U1.T
+        # I_minus_U1U1t = U2 @ U2.T
+
+        I_U1U1Ty_minus_I_U1U1TXbeta = I_minus_U1U1t@self.y - \
+            I_minus_U1U1t@self.X @ self.beta_delta
+
+        sigma_g2_lowrank = sigma_temp + 1/n * 1/delta * \
+            np.sum(I_U1U1Ty_minus_I_U1U1TXbeta ** 2)
+
+        print('see what happened')
+        print(sigma_g2, sigma_g2_lowrank)
+
     def _buffer_preCalculation_with_delta(self, delta):
         '''
-        It is a pre-caldulation of some matrix calculatons.
+        It is a pre-calculation of some matrix calculatons.
         When delta is given, some matrix calculations take place several time.
         This function is meant to calculate these pieces in advance to save some time.
         '''
@@ -149,8 +189,7 @@ class FASTLMM:
                 (self.UTXT_inv_S_delta_UTy + 1/delta * self.I_UUTX_I_UUTy)
 
         else:
-            inversepart = self.UTX.T / (self.S + delta) @ self.UTX
-
+            inversepart = self.UTXT_inv_S_delta_UTX
             beta = u.inv(inversepart) @ \
                 self.UTXT_inv_S_delta_UTy
 
@@ -158,7 +197,7 @@ class FASTLMM:
 
     def _sigma_g2(self, delta):
         '''
-        Sigma_g2 function of delta
+        Sigma_g2 function of delta 
         '''
         # Update buffer
         if delta != self.delta:
@@ -166,16 +205,17 @@ class FASTLMM:
 
         n, d = self.X.shape
 
-        sigma_g2 = 1/n * np.sum(self.UTy_minus_UTXbeta ** 2/(self.S + delta))
+        # the squeeze is making shape from (n,1) to (n,)
+        sigma_g2 = 1/n * \
+            np.sum(self.UTy_minus_UTXbeta.squeeze() ** 2/(self.S + delta))
 
         if self.lowRank:
 
             sigma_g2 += 1/n * 1/delta * \
                 np.sum(self.I_UUTy_minus_I_UUTXbeta ** 2)
-            if self.REML:
-                pass  # waiting to implement
 
-        elif self.REML:
+        # from formula in page 10, the sigma_g2 of REML is given by
+        if self.REML:
             sigma_g2 = sigma_g2 * n / (n-d)
 
         return sigma_g2.squeeze()
@@ -197,15 +237,16 @@ class FASTLMM:
                 n*np.log(2*np.pi) + np.sum(np.log(self.S + delta)) +
                 (n - k) * np.log(delta) + n +
                 n * np.log(1/n * (
-                    np.sum(self.UTy_minus_UTXbeta**2/(self.S + delta)) +
-                    np.sum(np.square(self.I_UUTy_minus_I_UUTXbeta)) / delta
+                    np.sum(self.UTy_minus_UTXbeta.squeeze()**2/(self.S + delta)) +
+                    np.sum((self.I_UUTy_minus_I_UUTXbeta)**2) / delta
                 ))
             )
         else:
             LL = -1/2 * (
                 n*np.log(2*np.pi) + np.sum(np.log(self.S + delta)) + n +
                 n * np.log(
-                    1/n * np.sum((self.UTy_minus_UTXbeta**2)/(self.S + delta))
+                    1/n * np.sum((self.UTy_minus_UTXbeta.squeeze()
+                                 ** 2)/(self.S + delta))
                 )
             )
         return LL.squeeze()
@@ -223,7 +264,7 @@ class FASTLMM:
         if self.lowRank:
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
-                d * np.log(2*np.pi * self._sigma_g2(delta)) -
+                d * np.log(2*np.pi * self._sigma_g2(delta)) + self.log_XTX -
                 np.log(
                     det(self.UTXT_inv_S_delta_UTX + self.I_UUTX_sq/delta)
                 )
@@ -231,7 +272,7 @@ class FASTLMM:
         else:
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
-                d * np.log(2*np.pi * self._sigma_g2(delta)) -
+                d * np.log(2*np.pi * self._sigma_g2(delta)) + self.log_XTX -
                 np.log(
                     det(self.UTXT_inv_S_delta_UTX)
                 )
@@ -268,7 +309,7 @@ class FASTLMM:
                 fun, bounds=bounds, method='bounded')
             x = minimize_result.x
             funs = minimize_result.fun
-            print(x, bounds)
+
             if (type(x) != np.ndarray):
                 local_minimums.append(x)
             else:
@@ -290,10 +331,11 @@ class FASTLMM:
         return x, minimize_value
 
     def test(self, d):
-        print('testing')
+        print('testing using delta: ', d)
         print('beta is {}'.format(self._beta(d)))
         print('sigma g2 is {}'.format(self._sigma_g2(d)))
         print('liklihood is {}'.format(self._log_likelhood_delta(d)))
-        print('restricted liklihood is {}'.format(
-            self._restricted_log_likelihood(d)))
+        if self.REML:
+            print('restricted liklihood is {}'.format(
+                self._restricted_log_likelihood(d)))
         print('end of testing')
