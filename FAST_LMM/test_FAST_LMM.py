@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from FAST_LMM import FASTLMM
 # import FAST.FAST_LMM
 
-n, p = 100, 5
+n, p = 1000, 5
 np.random.seed(5)
 X = np.random.normal(0, 1, size=[n, p])
 n_clusters = 10
@@ -17,8 +17,8 @@ for i in range(n_clusters):
     W[(i * cluster_size):((i+1) * cluster_size-1), i] = 1
 
 beta = np.random.normal(0, 20, p)
-sigma_g2 = 20
-delta = 0.5
+sigma_g2 = 10
+delta = 3
 sigma_e2 = delta * sigma_g2
 print('sigma_g2: ', sigma_g2)
 print('sigma_e2: ', sigma_e2)
@@ -44,17 +44,16 @@ f.fit(X, y, W)
 neg_LL = f._neg_cover()
 
 
-deltas = np.logspace(-10, 10, 21)
-negative_LL_values = [neg_LL(d) for d in deltas]
+# deltas = np.logspace(-10, 10, 21)
+# negative_LL_values = [neg_LL(d) for d in deltas]
 
 
-x_ = np.log10(deltas)
-plt.plot(x_, negative_LL_values)
-plt.show()
+# x_ = np.log10(deltas)
+# plt.plot(x_, negative_LL_values)
+# plt.show()
+
+f.plot_likelihood(REML=True)
 
 
-x, funs = f._optimization(neg_LL)
-print(x)
-print(funs)
-
-f.test(x)
+f.test(f.delta)
+print(f.delta, f.sigma_g2)

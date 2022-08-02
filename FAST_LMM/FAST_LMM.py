@@ -7,12 +7,19 @@ from numpy.linalg import det
 from numpy.linalg import LinAlgError
 import scipy.optimize as opt
 import warnings
-import utils as u
+
+from numpy.linalg import inv as inv_
+from numpy.linalg import pinv
+
+# import utils as u
+try:
+    import utils as u
+except ImportError:
+    print("import uitls from the calling time")
 
 
 class FASTLMM:
     beta = None  # coefficients
-
     sigma_g2 = None  # gene variance
     sigma_e2 = None  # phenotype variance
     delta = None  # ratio of sigma_e2 to sigma_g2
@@ -34,6 +41,7 @@ class FASTLMM:
     def fit(self, X, y, W=None):
         self.X = np.array(X).astype('float64')
         self.y = np.array(y).reshape([-1, 1])
+        self.W = W
 
         d = X.shape[1]
         # K = W.T @ W
@@ -60,14 +68,14 @@ class FASTLMM:
                 warnings.warn("W is set as lowRank, but actually not lowRank.")
                 self.lowRank = False
 
-            if self.rank < min(n, sc):
-                # in case the rank smaller than min(n, sc)
-                U, S, _ = svds(K, self.rank)
-            else:
-                # in case the rank larger than n or sc
-                U, S, _ = svd(K, overwrite_a=True)
-                U = U[:, :self.rank]
-                S = S[: self.rank]
+            # if self.rank < min(n, sc):
+            #     # in case the rank smaller than min(n, sc)
+            #     U, S, _ = svds(K, self.rank)
+            # else:
+            #     # in case the rank larger than n or sc
+            U, S, _ = svd(K, overwrite_a=True)
+            U = U[:, :self.rank]
+            S = S[: self.rank]
         else:
             if self.rank < max(n, sc):
                 warnings.warn('W is set lowRank False, but actually lowRank.')
@@ -91,6 +99,37 @@ class FASTLMM:
         self.U = U
         self.S = S ** 2
         self._buffer_preCalculation()
+        self._set_parameter()
+
+    def predict(self, X_predict, W_predict=None):
+        n, d = X_predict.shape
+        if W_predict is None:
+            W_predict = 1/np.sqrt(d) * X_predict
+
+        K_tr_te = W_predict @ self.W.T
+        u = self.sigma_g2 * K_tr_te @ self.U / (self.S + self.delta) \
+            @ (self.UTy - self.UTX @ self.beta)
+        y_pred = X_predict @ self.beta
+        return y_pred
+
+    def _set_parameter(self):
+        neg_LL = self._neg_cover()
+        delta, funs = self._optimization(neg_LL)
+        self.delta = delta
+        print('Optimization Results:')
+        print('Delta is calculated as: ', delta)
+        if not self.REML:
+            print('Maximum Likelihood is calculated as: ',
+                  self._log_likelhood_delta(delta))
+        else:
+            print('Maximum REML is calculated as: ',
+                  self._log_likelhood_delta(delta))
+
+        self.beta = self._beta(delta)
+        self.sigma_g2 = self._sigma_g2(delta)
+        self.sigma_e2 = self.sigma_g2 * delta
+        print('Sigma_g2:', self.sigma_g2)
+        print('Sigma_e2:', self.sigma_e2)
 
     def _buffer_preCalculation(self):
         n, _ = self.X.shape
@@ -107,50 +146,7 @@ class FASTLMM:
         if self.REML:
             self.log_XTX = np.log(det(self.X.T @ self.X))
 
-    def testing_sigmag2(self, delta):
-        U = self.U
-        U1 = self.U[:, :self.rank]
-        U2 = self.U[:, :self.rank]
-        S1 = self.S[:self.rank]
-        # Update buffer
-        if delta != self.delta:
-            self._buffer_preCalculation_with_delta(delta)
-
-        a = self.y - self.X @ self.beta_delta
-        test1 = (U.T @ a).T @ u.inv(np.diag(self.S + delta)) @  (U.T @ a)
-        test2 = (U1.T @ a).T @ u.inv(np.diag(S1 + delta)) @ (U1.T @ a) +\
-            (U2.T @ a) ** 2 / delta
-        print('if difference???')
-        print(np.sum((test1 - test2)**2))
-
-        n, d = self.X.shape
-
-        temp = U.T@(self.y - self.X @ self.beta_delta).squeeze()
-        print(self.y.shape)
-        print(temp.shape)
-        sigma_g2 = 1/n * \
-            np.sum(temp
-                   ** 2/(self.S + delta))
-
-        sigma_g22 = 1/n * \
-            np.sum(temp.T @ u.inv(np.diag(self.S + delta)) @ temp)
-
-        print('sigma_g2:', sigma_g2, 'sigma_g22:', sigma_g22)
-
-        sigma_temp = 1/n * \
-            np.sum((U1.T@(self.y - self.X @ self.beta_delta))
-                   ** 2/(self.S[:self.rank] + delta))
-        I_minus_U1U1t = np.identity(n) - U1 @ U1.T
-        # I_minus_U1U1t = U2 @ U2.T
-
-        I_U1U1Ty_minus_I_U1U1TXbeta = I_minus_U1U1t@self.y - \
-            I_minus_U1U1t@self.X @ self.beta_delta
-
-        sigma_g2_lowrank = sigma_temp + 1/n * 1/delta * \
-            np.sum(I_U1U1Ty_minus_I_U1U1TXbeta ** 2)
-
-        print('see what happened')
-        print(sigma_g2, sigma_g2_lowrank)
+    delta_temp = None
 
     def _buffer_preCalculation_with_delta(self, delta):
         '''
@@ -158,7 +154,7 @@ class FASTLMM:
         When delta is given, some matrix calculations take place several time.
         This function is meant to calculate these pieces in advance to save some time.
         '''
-        self.delta = delta
+        self.delta_temp = delta
         self.beta_delta = self._beta(delta)
 
         self.UTy_minus_UTXbeta = self.UTy - self.UTX @ self.beta_delta
@@ -185,12 +181,12 @@ class FASTLMM:
         if self.lowRank:
             inversepart = self.UTXT_inv_S_delta_UTX +\
                 1/delta * self.I_minus_UUT_X.T @ self.I_minus_UUT_X
-            beta = u.inv(inversepart) @\
+            beta = utils.inv(inversepart) @\
                 (self.UTXT_inv_S_delta_UTy + 1/delta * self.I_UUTX_I_UUTy)
 
         else:
             inversepart = self.UTXT_inv_S_delta_UTX
-            beta = u.inv(inversepart) @ \
+            beta = utils.inv(inversepart) @ \
                 self.UTXT_inv_S_delta_UTy
 
         return beta
@@ -200,7 +196,7 @@ class FASTLMM:
         Sigma_g2 function of delta 
         '''
         # Update buffer
-        if delta != self.delta:
+        if delta != self.delta_temp:
             self._buffer_preCalculation_with_delta(delta)
 
         n, d = self.X.shape
@@ -226,7 +222,7 @@ class FASTLMM:
         '''
 
         # Update buffer
-        if delta != self.delta:
+        if delta != self.delta_temp:
             self._buffer_preCalculation_with_delta(delta)
 
         n = self.X.shape[0]
@@ -256,7 +252,7 @@ class FASTLMM:
         restricted log likelihood function
         '''
         # Update buffer
-        if delta != self.delta:
+        if delta != self.delta_temp:
             self._buffer_preCalculation_with_delta(delta)
 
         n, d = self.X.shape
@@ -282,6 +278,22 @@ class FASTLMM:
             REMLL = REMLL.reshape((1,))
 
         return REMLL
+
+    def plot_likelihood(self, REML=True):
+        deltas = np.logspace(-10, 10, 21)
+        if REML and self.REML:
+            LL = [self._restricted_log_likelihood(d) for d in deltas]
+            yLabel = 'Restricted LL'
+        else:
+            LL = [self._log_likelhood_delta(d) for d in deltas]
+            yLabel = 'Log-likelihood'
+
+        x_ = np.log10(deltas)
+        plt.plot(x_, LL)
+        plt.xlabel('log(delta)')
+        plt.ylabel(yLabel)
+        plt.title('Lod-Likelihood(Restricted) of Delta')
+        plt.show()
 
     def _neg_cover(self):
         if self.REML:
@@ -339,3 +351,21 @@ class FASTLMM:
             print('restricted liklihood is {}'.format(
                 self._restricted_log_likelihood(d)))
         print('end of testing')
+
+
+class utils:
+    def issparse(m):
+        return np.sum(m == 0) > (m.shape[0] * m.shape[1] / 2)
+
+    def inv(matrix):
+        try:
+            inv_mat = inv_(matrix)
+        except LinAlgError as lae:
+            if str(lae) != "Singular matrix":
+                print('shape is {}'.format(matrix.shape))
+                raise lae
+
+            print('Singluar Matrix')
+            inv_mat = pinv(matrix)
+        finally:
+            return inv_mat
