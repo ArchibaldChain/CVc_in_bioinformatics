@@ -18,7 +18,7 @@ for i in range(n_clusters):
 
 beta = np.random.normal(0, 20, p)
 sigma_g2 = 3
-delta = 0.5
+delta = 2
 sigma_e2 = delta * sigma_g2
 print('sigma_g2: ', sigma_g2)
 print('sigma_e2: ', sigma_e2)
