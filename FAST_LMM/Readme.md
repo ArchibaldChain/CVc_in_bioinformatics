@@ -1,6 +1,6 @@
 # [FaST linear mixed models for genome-wide association studies](1)
 
-Postition:  'FAST_LMM.FaST_LMM.FASTLMM'
+Position:  'FAST_LMM.FaST_LMM.FASTLMM'
 
 Type: Class
 
@@ -30,9 +30,9 @@ where $(u_1, u_2, \dots, u_n)^\top \sim MVN(0, \sigma_g^2 K)$ and $\epsilon_i \s
 
 ##### `fit(X:np.array, y:np.array, W=None)`:
 > fitting the model
-parameteres:
+parameters:
 - `X`: `np.array` with shape of `(n, p)`
-- 'y': `np.array` with shape of `(n,1)`, if it is shape of `(n,)`, it will be reshape to `(n,1)`
+- `y`: `np.array` with shape of `(n,1)`, if it is shape of `(n,)`, it will be reshape to `(n,1)`
 - `W`: `np.array`, the random effects indicator matrix of shape `(n, sc)`. If it is set as None, `W = 1/ np.sqrt(n) X`.
 
 return: None
@@ -47,7 +47,7 @@ return: None
 > Get the $\text{var}(y, y)^{-1}$. If all parameters are None then using the estimated values, otherwise using the parameter values.
 
 ##### `plot_likelihood(REML=True)`:
-> Plotting the log-likelihood v.s. $log(\delta)$. Parameters is to determine whether to plot log-likelihood or resitredt log-likelihood. The restricted log-likelihood is plot when bot `REML` and `self.REML` are set as True.
+> Plotting the log-likelihood v.s. $log(\delta)$. Parameters is to determine whether to plot log-likelihood or restricted log-likelihood. The restricted log-likelihood is plot when bot `REML` and `self.REML` are set as True.
 
 ## Example
 Example is available in `./test_FAST_LMM.py`.
