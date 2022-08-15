@@ -49,5 +49,7 @@ return: None
 ##### `plot_likelihood(REML=True)`:
 > Plotting the log-likelihood v.s. $log(\delta)$. Parameters is to determine whether to plot log-likelihood or resitredt log-likelihood. The restricted log-likelihood is plot when bot `REML` and `self.REML` are set as True.
 
+## Example
+Example is available in `./test_FAST_LMM.py`.
 
 [1]: https://www.nature.com/articles/nmeth.1681
