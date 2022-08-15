@@ -17,8 +17,8 @@ for i in range(n_clusters):
     W[(i * cluster_size):((i+1) * cluster_size-1), i] = 1
 
 beta = np.random.normal(0, 20, p)
-sigma_g2 = 10
-delta = 3
+sigma_g2 = 3
+delta = 0.5
 sigma_e2 = delta * sigma_g2
 print('sigma_g2: ', sigma_g2)
 print('sigma_e2: ', sigma_e2)
@@ -34,26 +34,11 @@ data = np.concatenate((X, y.reshape(-1, 1)), axis=1)
 np.savetxt("testData.csv", data, delimiter=",")
 #####################################
 
-f = FASTLMM(False, REML=False)
+f = FASTLMM(False, REML=True)
 
 
 f.fit(X, y, W)
 # f.testing_sigmag2(delta)
-
-
-neg_LL = f._neg_cover()
-
-
-# deltas = np.logspace(-10, 10, 21)
-# negative_LL_values = [neg_LL(d) for d in deltas]
-
-
-# x_ = np.log10(deltas)
-# plt.plot(x_, negative_LL_values)
-# plt.show()
-
 f.plot_likelihood(REML=True)
 
-
-f.test(f.delta)
-print(f.delta, f.sigma_g2)
+print(f.beta)

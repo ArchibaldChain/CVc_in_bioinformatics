@@ -7,6 +7,7 @@ from numpy.linalg import det
 from numpy.linalg import LinAlgError
 import scipy.optimize as opt
 import warnings
+import time
 
 from numpy.linalg import inv as inv_
 from numpy.linalg import pinv
@@ -28,8 +29,7 @@ class FASTLMM:
     delta = None  # temporary delta for efficiency
 
     def __init__(self, lowRank=False, REML=False):
-        print('FAST-LMM')
-        print('------------------------------------')
+        print('------------- FAST-LMM------------------')
         if REML:
             print('LowRank is set as {}, using REML'.format(lowRank))
         else:
@@ -39,19 +39,21 @@ class FASTLMM:
         self.REML = REML
 
     def fit(self, X, y, W=None):
+
+        start_time = time.time()
         self.X = np.array(X).astype('float64')
         self.y = np.array(y).reshape([-1, 1])
         self.W = W
 
-        d = X.shape[1]
-        # K = W.T @ W
-        # or K = 1/d * X.T @ X
+        p = X.shape[1]
+
+        # normally we calculate K =  W @ W.T
+        # or K = 1/n *  X @ X.T
         # so we can set W = 1/ sqrt(d) * X
         if W is None:
-            W = 1 / np.sqrt(d) * X.copy()
+            W = 1 / np.sqrt(p) * X.copy()
 
         n, sc = W.shape
-        print(y.shape)
         if (n != X.shape[0]) or (n != self.y.shape[0]) or (self.y.shape[1]) > 1:
             raise ValueError(
                 'Incompatible shape of X(shape of {}), y(shape of {}) and w(shape of {}).'
@@ -68,12 +70,7 @@ class FASTLMM:
                 warnings.warn("W is set as lowRank, but actually not lowRank.")
                 self.lowRank = False
 
-            # if self.rank < min(n, sc):
-            #     # in case the rank smaller than min(n, sc)
-            #     U, S, _ = svds(K, self.rank)
-            # else:
-            #     # in case the rank larger than n or sc
-            U, S, _ = svd(K, overwrite_a=True)
+            U, S, _ = svd(W, overwrite_a=True)
             U = U[:, :self.rank]
             S = S[: self.rank]
         else:
@@ -81,13 +78,13 @@ class FASTLMM:
                 warnings.warn('W is set lowRank False, but actually lowRank.')
 
             # incase that set lowRank is False
-            U, S, _ = svd(K, overwrite_a=True)
+            U, S, _ = svd(W, overwrite_a=True)
             # setting the last n - sc eigenvalues as 0
             S[self.rank:] = 0
 
         # check if S is a matrix
         if S.ndim > 1:
-            print('Get 2d S')
+            print('Get a 2 dimensional S')
             print(S)
             S = np.diag(S)
 
@@ -100,17 +97,78 @@ class FASTLMM:
         self.S = S ** 2
         self._buffer_preCalculation()
         self._set_parameter()
+        self.summary()
+        print("------ %s seconds ------" % (time.time() - start_time))
+
+    def summary(self):
+        print('---------------Summary------------------')
+        if self.REML:
+            print('LowRank is set as {}, using REML'.format(self.lowRank))
+        else:
+            print('LowRank is set as {}, not using REML'.format(self.lowRank))
+        print('Heritability h2:', 1 / (1+self.delta))
+        print('Sigma_g2:', self.sigma_g2)
+        print('Sigma_e2:', self.sigma_e2)
 
     def predict(self, X_predict, W_predict=None):
-        n, d = X_predict.shape
         if W_predict is None:
-            W_predict = 1/np.sqrt(d) * X_predict
+            if self.W is not None:
+                raise Exception('W must be the same form as training data.')
 
-        K_tr_te = W_predict @ self.W.T
-        u = self.sigma_g2 * K_tr_te @ self.U / (self.S + self.delta) \
-            @ (self.UTy - self.UTX @ self.beta)
-        y_pred = X_predict @ self.beta
+            p = X_predict.shape[1]
+            K_te_tr = 1/p * X_predict @ self.X
+        else:
+            K_te_tr = W_predict @ self.W.T
+
+        V_inv = self.U/(self.S + self.delta) @ self.U.T
+        if self.lowRank:
+            V_inv += self.I_minus_UUT / self.delta
+        V_inv = V_inv/self.sigma_g2
+
+        u = self.sigma_g2 * K_te_tr @ V_inv @ (self.y - self.X @ self.beta)
+        y_pred = X_predict @ self.beta + u
         return y_pred
+
+    def V(self, W=None,  sigma_g2=None, sigma_e2=None):
+        '''
+        get the Variance of Y-Xbeta
+        parameters are set for new parameters calculation
+        '''
+        if sigma_g2 is None:
+            sigma_g2 = self.sigma_g2
+        if sigma_e2 is None:
+            sigma_e2 = self.sigma_e2
+
+        n = self.X.shape[0]
+        if W is None:
+            V = self.U * (sigma_g2 * self.S +
+                          sigma_e2) @ self.U.T
+            if self.lowRank:
+                V += self.I_minus_UUT * sigma_e2
+        else:
+            V = sigma_g2 * W @ W.T + sigma_e2 * np.identity(n)
+        return V
+
+    def V_inv(self, W=None, sigma_g2=None, sigma_e2=None):
+        '''
+        get the inverse of Variance of Y-Xbeta
+        parameters are set for new parameters calculation
+        '''
+        if sigma_g2 is None:
+            sigma_g2 = self.sigma_g2
+        if sigma_e2 is None:
+            sigma_e2 = self.sigma_e2
+        delta = sigma_e2 / sigma_g2
+
+        if W is None:
+            V_inv = self.U/(self.S + delta) @ self.U.T
+            if self.lowRank:
+                V_inv += self.I_minus_UUT / delta
+            V_inv = V_inv/sigma_g2
+        else:
+            V_inv = utils.inv(sigma_g2 * W @ W.T +
+                              sigma_e2 * np.identity(W.shape[0]))
+        return V_inv
 
     def _set_parameter(self):
         neg_LL = self._neg_cover()
@@ -123,13 +181,11 @@ class FASTLMM:
                   self._log_likelhood_delta(delta))
         else:
             print('Maximum REML is calculated as: ',
-                  self._log_likelhood_delta(delta))
+                  self._restricted_log_likelihood(delta))
 
         self.beta = self._beta(delta)
         self.sigma_g2 = self._sigma_g2(delta)
         self.sigma_e2 = self.sigma_g2 * delta
-        print('Sigma_g2:', self.sigma_g2)
-        print('Sigma_e2:', self.sigma_e2)
 
     def _buffer_preCalculation(self):
         n, _ = self.X.shape
@@ -173,10 +229,10 @@ class FASTLMM:
         '''
         beta_function of delta
         '''
-        self.UTXT_inv_S_delta_UTX = \
-            (self.UTX).T / (self.S + delta) @ (self.UTX)
-        self.UTXT_inv_S_delta_UTy = \
-            (self.UTX).T / (self.S + delta) @ (self.UTy)
+        self.UTXT_inv_S_delta_UTX = (
+            self.UTX).T / (self.S + delta) @ (self.UTX)
+        self.UTXT_inv_S_delta_UTy = (
+            self.UTX).T / (self.S + delta) @ (self.UTy)
 
         if self.lowRank:
             inversepart = self.UTXT_inv_S_delta_UTX +\
@@ -193,7 +249,7 @@ class FASTLMM:
 
     def _sigma_g2(self, delta):
         '''
-        Sigma_g2 function of delta 
+        Sigma_g2 function of delta
         '''
         # Update buffer
         if delta != self.delta_temp:
