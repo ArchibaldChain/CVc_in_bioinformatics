@@ -54,11 +54,11 @@ class FASTLMM:
             W = 1 / np.sqrt(p) * X.copy()
 
         n, sc = W.shape
-        if (n != X.shape[0]) or (n != self.y.shape[0]) or (self.y.shape[1]) > 1:
+        if (n != X.shape[0]) or (n !=
+                                 self.y.shape[0]) or (self.y.shape[1]) > 1:
             raise ValueError(
                 'Incompatible shape of X(shape of {}), y(shape of {}) and w(shape of {}).'
-                .format(X.shape, self.y.shape, W.shape)
-            )
+                .format(X.shape, self.y.shape, W.shape))
 
         K = W @ W.T
         self.K = K.copy()
@@ -72,7 +72,7 @@ class FASTLMM:
 
             U, S, _ = svd(W, overwrite_a=True)
             U = U[:, :self.rank]
-            S = S[: self.rank]
+            S = S[:self.rank]
         else:
             if self.rank < max(n, sc):
                 warnings.warn('W is set lowRank False, but actually lowRank.')
@@ -94,7 +94,7 @@ class FASTLMM:
             S = np.concatenate([S, np.zeros(U.shape[1] - len(S))])
 
         self.U = U
-        self.S = S ** 2
+        self.S = S**2
         self._buffer_preCalculation()
         self._set_parameter()
         self.summary()
@@ -106,7 +106,7 @@ class FASTLMM:
             print('LowRank is set as {}, using REML'.format(self.lowRank))
         else:
             print('LowRank is set as {}, not using REML'.format(self.lowRank))
-        print('Heritability h2:', 1 / (1+self.delta))
+        print('Heritability h2:', 1 / (1 + self.delta))
         print('Sigma_g2:', self.sigma_g2)
         print('Sigma_e2:', self.sigma_e2)
 
@@ -116,20 +116,20 @@ class FASTLMM:
                 raise Exception('W must be the same form as training data.')
 
             p = X_predict.shape[1]
-            K_te_tr = 1/p * X_predict @ self.X
+            K_te_tr = 1 / p * X_predict @ self.X
         else:
             K_te_tr = W_predict @ self.W.T
 
-        V_inv = self.U/(self.S + self.delta) @ self.U.T
+        V_inv = self.U / (self.S + self.delta) @ self.U.T
         if self.lowRank:
             V_inv += self.I_minus_UUT / self.delta
-        V_inv = V_inv/self.sigma_g2
+        V_inv = V_inv / self.sigma_g2
 
         u = self.sigma_g2 * K_te_tr @ V_inv @ (self.y - self.X @ self.beta)
         y_pred = X_predict @ self.beta + u
         return y_pred
 
-    def V(self, W=None,  sigma_g2=None, sigma_e2=None):
+    def V(self, W=None, sigma_g2=None, sigma_e2=None):
         '''
         get the Variance of Y-Xbeta
         parameters are set for new parameters calculation
@@ -141,8 +141,7 @@ class FASTLMM:
 
         n = self.X.shape[0]
         if W is None:
-            V = self.U * (sigma_g2 * self.S +
-                          sigma_e2) @ self.U.T
+            V = self.U * (sigma_g2 * self.S + sigma_e2) @ self.U.T
             if self.lowRank:
                 V += self.I_minus_UUT * sigma_e2
         else:
@@ -161,10 +160,10 @@ class FASTLMM:
         delta = sigma_e2 / sigma_g2
 
         if W is None:
-            V_inv = self.U/(self.S + delta) @ self.U.T
+            V_inv = self.U / (self.S + delta) @ self.U.T
             if self.lowRank:
                 V_inv += self.I_minus_UUT / delta
-            V_inv = V_inv/sigma_g2
+            V_inv = V_inv / sigma_g2
         else:
             V_inv = utils.inv(sigma_g2 * W @ W.T +
                               sigma_e2 * np.identity(W.shape[0]))
@@ -229,10 +228,10 @@ class FASTLMM:
         '''
         beta_function of delta
         '''
-        self.UTXT_inv_S_delta_UTX = (
-            self.UTX).T / (self.S + delta) @ (self.UTX)
-        self.UTXT_inv_S_delta_UTy = (
-            self.UTX).T / (self.S + delta) @ (self.UTy)
+        self.UTXT_inv_S_delta_UTX = (self.UTX).T / (self.S +
+                                                    delta) @ (self.UTX)
+        self.UTXT_inv_S_delta_UTy = (self.UTX).T / (self.S +
+                                                    delta) @ (self.UTy)
 
         if self.lowRank:
             inversepart = self.UTXT_inv_S_delta_UTX +\
@@ -268,7 +267,7 @@ class FASTLMM:
 
         # from formula in page 10, the sigma_g2 of REML is given by
         if self.REML:
-            sigma_g2 = sigma_g2 * n / (n-d)
+            sigma_g2 = sigma_g2 * n / (n - d)
 
         return sigma_g2.squeeze()
 
@@ -285,22 +284,17 @@ class FASTLMM:
 
         if self.lowRank:
             k = self.rank
-            LL = -1/2 * (
-                n*np.log(2*np.pi) + np.sum(np.log(self.S + delta)) +
-                (n - k) * np.log(delta) + n +
-                n * np.log(1/n * (
-                    np.sum(self.UTy_minus_UTXbeta.squeeze()**2/(self.S + delta)) +
-                    np.sum((self.I_UUTy_minus_I_UUTXbeta)**2) / delta
-                ))
-            )
+            LL = -1 / 2 * (
+                n * np.log(2 * np.pi) + np.sum(np.log(self.S + delta)) +
+                (n - k) * np.log(delta) + n + n * np.log(
+                    1 / n *
+                    (np.sum(self.UTy_minus_UTXbeta.squeeze()**2 /
+                            (self.S + delta)) + np.sum(
+                                (self.I_UUTy_minus_I_UUTXbeta)**2) / delta)))
         else:
-            LL = -1/2 * (
-                n*np.log(2*np.pi) + np.sum(np.log(self.S + delta)) + n +
-                n * np.log(
-                    1/n * np.sum((self.UTy_minus_UTXbeta.squeeze()
-                                 ** 2)/(self.S + delta))
-                )
-            )
+            LL = -1 / 2 * (n * np.log(2 * np.pi) + np.sum(
+                np.log(self.S + delta)) + n + n * np.log(1 / n * np.sum(
+                    (self.UTy_minus_UTXbeta.squeeze()**2) / (self.S + delta))))
         return LL.squeeze()
 
     def _restricted_log_likelihood(self, delta):
@@ -331,7 +325,7 @@ class FASTLMM:
             )
 
         if REMLL.shape == (1, 1):
-            REMLL = REMLL.reshape((1,))
+            REMLL = REMLL.reshape((1, ))
 
         return REMLL
 
@@ -353,10 +347,12 @@ class FASTLMM:
 
     def _neg_cover(self):
         if self.REML:
+
             def neg_LL(d):
                 self._buffer_preCalculation_with_delta(d)
                 return -self._restricted_log_likelihood(d)
         else:
+
             def neg_LL(d):
                 self._buffer_preCalculation_with_delta(d)
                 return -self._log_likelhood_delta(d)
@@ -372,9 +368,10 @@ class FASTLMM:
         minimum_values = []
         for i in range(len(deltas) - 1):
             # bracket = opt.bracket(fun, xa = deltas[i], xb = deltas[i+1])
-            bounds = (deltas[i], deltas[i+1])
-            minimize_result = opt.minimize_scalar(
-                fun, bounds=bounds, method='bounded')
+            bounds = (deltas[i], deltas[i + 1])
+            minimize_result = opt.minimize_scalar(fun,
+                                                  bounds=bounds,
+                                                  method='bounded')
             x = minimize_result.x
             funs = minimize_result.fun
 
@@ -391,22 +388,6 @@ class FASTLMM:
         # minmums = [local_minimums[i] for i, v in enumerate(minimum_values) if v == min_value]
         minmum = local_minimums[minimum_values.index(min_value)]
         return minmum, min_value
-
-    def _optimization2(self, fun):
-        minimize_result = opt.minimize_scalar(fun, method='brent')
-        x = minimize_result.x
-        minimize_value = minimize_result.fun
-        return x, minimize_value
-
-    def test(self, d):
-        print('testing using delta: ', d)
-        print('beta is {}'.format(self._beta(d)))
-        print('sigma g2 is {}'.format(self._sigma_g2(d)))
-        print('liklihood is {}'.format(self._log_likelhood_delta(d)))
-        if self.REML:
-            print('restricted liklihood is {}'.format(
-                self._restricted_log_likelihood(d)))
-        print('end of testing')
 
 
 class utils:

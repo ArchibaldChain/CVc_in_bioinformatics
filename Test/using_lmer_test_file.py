@@ -8,7 +8,7 @@ import pandas as pd
 
 print(os.listdir())
 
-data = np.loadtxt('testData.csv', delimiter=',')
+data = np.loadtxt('data/testData.csv', delimiter=',')
 print(data.shape)
 y = data[:, -1]
 X = data[:, :-1]
