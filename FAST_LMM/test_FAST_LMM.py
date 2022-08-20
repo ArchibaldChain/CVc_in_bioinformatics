@@ -38,7 +38,7 @@ np.savetxt("./data/testData.csv", data, delimiter=",")
 f = FASTLMM(False, REML=True)
 
 f.fit(X, y, W)
-# f.testing_sigmag2(delta)
+print(f.delta_temp)
 f.plot_likelihood(REML=True)
 
 print(f.beta)

@@ -18,16 +18,7 @@ try:
 except ImportError:
     print("import uitls from the calling time")
 
-
-class FASTLMM:
-    beta = None  # coefficients
-    sigma_g2 = None  # gene variance
-    sigma_e2 = None  # phenotype variance
-    delta = None  # ratio of sigma_e2 to sigma_g2
-    U = None  # eigenvector matrix of K
-    S = None  # eigenvalues array of K
-    delta = None  # temporary delta for efficiency
-
+class FASTLMM:d
     def __init__(self, lowRank=False, REML=False):
         print('------------- FAST-LMM------------------')
         if REML:
@@ -37,6 +28,7 @@ class FASTLMM:
 
         self.lowRank = lowRank
         self.REML = REML
+        self.delta_temp = None
 
     def fit(self, X, y, W=None):
 
@@ -201,7 +193,7 @@ class FASTLMM:
         if self.REML:
             self.log_XTX = np.log(det(self.X.T @ self.X))
 
-    delta_temp = None
+    # delta_temp = None
 
     def _buffer_preCalculation_with_delta(self, delta):
         '''
@@ -391,9 +383,11 @@ class FASTLMM:
 
 
 class utils:
+    @staticmethod
     def issparse(m):
         return np.sum(m == 0) > (m.shape[0] * m.shape[1] / 2)
 
+    @staticmethod
     def inv(matrix):
         try:
             inv_mat = inv_(matrix)
