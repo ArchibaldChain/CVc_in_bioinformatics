@@ -16,7 +16,6 @@ def inv(matrix):
             print('shape is {}'.format(matrix.shape))
             raise lae
 
-        print('Singluar Matrix')
         inv_mat = pinv(matrix)
     finally:
         return inv_mat

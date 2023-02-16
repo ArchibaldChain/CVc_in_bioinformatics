@@ -18,7 +18,8 @@ try:
 except ImportError:
     print("import uitls from the calling time")
 
-class FASTLMM:d
+
+class FASTLMM:
     def __init__(self, lowRank=False, REML=False):
         print('------------- FAST-LMM------------------')
         if REML:
@@ -31,8 +32,8 @@ class FASTLMM:d
         self.delta_temp = None
 
     def fit(self, X, y, W=None):
-
         start_time = time.time()
+
         self.X = np.array(X).astype('float64')
         self.y = np.array(y).reshape([-1, 1])
         self.W = W
@@ -54,15 +55,15 @@ class FASTLMM:d
 
         K = W @ W.T
         self.K = K.copy()
-        self.rank = matrix_rank(K)
-        print('Rank of W is {}, shape of W is {}.'.format(self.rank, W.shape))
 
+        U, S, _ = svd(W, overwrite_a=True)
+        self.rank = sum(S > 10e-5)
+        print('Rank of W is {}, shape of W is {}.'.format(self.rank, W.shape))
         if self.lowRank:
             if self.rank == max(n, sc):
                 warnings.warn("W is set as lowRank, but actually not lowRank.")
                 self.lowRank = False
 
-            U, S, _ = svd(W, overwrite_a=True)
             U = U[:, :self.rank]
             S = S[:self.rank]
         else:
@@ -70,10 +71,12 @@ class FASTLMM:d
                 warnings.warn('W is set lowRank False, but actually lowRank.')
 
             # incase that set lowRank is False
-            U, S, _ = svd(W, overwrite_a=True)
-            # setting the last n - sc eigenvalues as 0
             S[self.rank:] = 0
 
+        print("--- %s seconds for SVD calculation ---" %
+              (time.time() - start_time))
+
+        start_time = time.time()
         # check if S is a matrix
         if S.ndim > 1:
             print('Get a 2 dimensional S')
@@ -302,7 +305,7 @@ class FASTLMM:d
         if self.lowRank:
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
-                d * np.log(2*np.pi * self._sigma_g2(delta)) + self.log_XTX -
+                d * np.log(2*np.pi * self._sigma_g2(delta))  -
                 np.log(
                     det(self.UTXT_inv_S_delta_UTX + self.I_UUTX_sq/delta)
                 )
@@ -310,7 +313,7 @@ class FASTLMM:d
         else:
             REMLL = self._log_likelhood_delta(delta) + \
                 1/2 * (
-                d * np.log(2*np.pi * self._sigma_g2(delta)) + self.log_XTX -
+                d * np.log(2*np.pi * self._sigma_g2(delta)) -
                 np.log(
                     det(self.UTXT_inv_S_delta_UTX)
                 )
@@ -381,6 +384,15 @@ class FASTLMM:d
         minmum = local_minimums[minimum_values.index(min_value)]
         return minmum, min_value
 
+    def save(self, path='./parameters/fast_parameters.npz'):
+        np.savez(path,
+                 se2=self.sigma_e2,
+                 sg2=self.sigma_g2,
+                 beta=self.beta,
+                 delta=self.delta,
+                 U=self.U,
+                 S=self.S)
+
 
 class utils:
     @staticmethod
@@ -396,7 +408,7 @@ class utils:
                 print('shape is {}'.format(matrix.shape))
                 raise lae
 
-            print('Singluar Matrix')
+            # print('Singluar Matrix')
             inv_mat = pinv(matrix)
-        finally:
-            return inv_mat
+
+        return inv_mat

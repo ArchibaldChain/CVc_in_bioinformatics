@@ -7,7 +7,7 @@ import sys
 
 from FaST_LMM import FASTLMM
 
-n, p = 1000, 5
+n, p = 15000, 5
 np.random.seed(5)
 X = np.random.normal(0, 1, size=[n, p])
 n_clusters = 10
@@ -18,8 +18,8 @@ for i in range(n_clusters):
     W[(i * cluster_size):((i + 1) * cluster_size - 1), i] = 1
 
 beta = np.random.normal(0, 20, p)
-sigma_g2 = 3
-delta = 2
+sigma_g2 = 5
+delta = 1
 sigma_e2 = delta * sigma_g2
 print('sigma_g2: ', sigma_g2)
 print('sigma_e2: ', sigma_e2)
@@ -35,7 +35,7 @@ data = np.concatenate((X, y.reshape(-1, 1)), axis=1)
 np.savetxt("./data/testData.csv", data, delimiter=",")
 #####################################
 
-f = FASTLMM(False, REML=True)
+f = FASTLMM(True, REML=True)
 
 f.fit(X, y, W)
 print(f.delta_temp)

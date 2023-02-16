@@ -19,7 +19,7 @@ class VCF_line:
         self.data = np.array([split_to_int(x) for x in self.words[self.SI:]])
 
     def get_frequency(self) -> int:
-        return np.sum(self.data)/(2*self.N)
+        return np.sum(self.data) / (2 * self.N)
 
     def get_info(self, index) -> str:
         if isinstance(index, str):
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     filename = 'data/chr1First2000.vcf'
     with open(filename, 'r') as f:
         n = 1
-        while n < 30:
+        while n < 22:
             line = f.readline()
 
             if line.startswith('#') and (not line.startswith('##')):
