@@ -72,9 +72,9 @@ def timing(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
-        print('--- start function ' + func.__name__, '---')
+        print('\n--- start function ' + func.__name__, '---')
         result = func(*args, **kwargs)
-        print('------ {:.4f} seconds -----'.format(time.time() - start_time))
+        print('------ {:.4f} seconds -----\n'.format(time.time() - start_time))
         return result
 
     return wrapper

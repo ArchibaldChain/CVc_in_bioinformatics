@@ -194,7 +194,13 @@ class FASTLMM:
             self.I_UUTX_I_UUTy = self.I_minus_UUT_X.T @ self.I_minus_UUT_y
 
         if self.REML:
-            self.log_XTX = np.log(det(self.X.T @ self.X))
+            temp = det(self.X.T @ self.X)
+            if temp <= 0:
+                warnings.warn('X.T @ X is singular, set REML to False')
+                self.REML = False
+                self.log_XTX = 0
+            else:
+                self.log_XTX = np.log(temp)
 
     # delta_temp = None
 

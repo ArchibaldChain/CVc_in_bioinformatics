@@ -136,19 +136,22 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
         # calculating the cv error
         CV_error += error_k
 
-    CV_error *= 1 / nfolds
+        def remove_output_files():
+            # Delete the temporary output files
+            try:
+                output = './output'
+                dirs = os.listdir(output)
+                rex = re.compile(f'(cv_{rand_num})')
+                rm_dirs = [d for d in dirs if rex.match(d)]
+                print('removing files: ', rm_dirs)
+                for dir in rm_dirs:
+                    os.remove(os.path.join(output, dir))
+            except FileNotFoundError as e:
+                print(e)
 
-    # Delete the temporary output files
-    try:
-        output = './output'
-        dirs = os.listdir(output)
-        rex = re.compile(f'(cv_{rand_num})')
-        rm_dirs = [d for d in dirs if rex.match(d)]
-        print('removing files: ', rm_dirs)
-        for dir in rm_dirs:
-            os.remove(os.path.join(output, dir))
-    except FileNotFoundError as e:
-        print(e)
+        remove_output_files()
+
+    CV_error *= 1 / nfolds
 
     return CV_error, H_cv
 

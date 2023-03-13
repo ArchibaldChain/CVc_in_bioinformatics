@@ -5,7 +5,7 @@ import os
 import shutil
 
 command = "./gemma-0.98.5"
-temp_dir = 'temp_dir'
+temp_dir = '.temp_dir'
 os.system("chmod +x " + command)
 print(os.getcwd())
 
@@ -149,9 +149,8 @@ def gemma_test(test_data,
 
 # using gemma to estimate the variance components for each relateness matrix.
 def gemma_multi_var_estimator(pheno, multi_relateness, var_prefix):
+    rand_number = str(np.random.randint(100000))
     if type(pheno) == np.ndarray:
-        rand_number = str(np.random.randint(100000))
-        temp_dir = 'temp_dir'
         if not os.path.exists(temp_dir):
             os.mkdir(temp_dir)
         pheno_file = os.path.join(temp_dir, 'temp_pheno' + rand_number)
@@ -173,21 +172,42 @@ def gemma_multi_var_estimator(pheno, multi_relateness, var_prefix):
         os.system(
             command +
             f' -p {pheno_file} -mk {multi_relateness} -o {var_prefix} -vc 1')
-    # if multi_relateness if a list of multiple relateness files
-    elif isinstance(multi_relateness, list):
-        temp_dir1 = 'temp_relatness1.txt'
-        temp_dir2 = 'temp_relatness2.txt'
-        np.savetxt(temp_dir1, multi_relateness)
-        np.savetxt(temp_dir2, multi_relateness)
-        temp_dir = 'temp_multi_relatness_path.txt'
-        with open(temp_dir, 'w') as f:
-            f.writelines('\n'.join([temp_dir1, temp_dir2]))
 
-        print(command +
-              f' -p {pheno_file} -mk {temp_dir} -o {var_prefix} -vc 1')
-        os.system(command +
-                  f' -p {pheno_file} -mk {temp_dir} -o {var_prefix} -vc 1')
-        os.remove(temp_dir)
+    # in case multi_relateness is a list of relateness files or nparray
+    elif isinstance(multi_relateness, list):
+        temp_relateness_files = []  # store the file names of relateness files
+        temp_relateness_dir = os.path.join(
+            temp_dir, 'temp_multi_relatness_path_' + rand_number)
+
+        for i, rel in enumerate(multi_relateness):
+            # if rel is a relateness file
+            if isinstance(rel, str):
+                assert os.path.exists(rel), f'File {rel} not found.'
+                with open(temp_relateness_dir, 'a') as f:
+                    f.write(rel + '\n')
+
+            # if rel is a numpy array then save it as a file
+            elif isinstance(rel, np.ndarray):
+                assert len(rel.shape) == 2 and rel.shape[0] == rel.shape[
+                    1], f'Unrecognized shape of array {rel.shape} used.'
+                temp_relatness = os.path.join(
+                    temp_dir, 'temp_relateness_' + rand_number + '_' + str(i))
+                np.savetxt(temp_relatness, rel)
+                temp_relateness_files.append(temp_relatness)
+                with open(temp_relateness_dir, 'a') as f:
+                    f.write(temp_relatness + '\n')
+
+        print(
+            command +
+            f' -p {pheno_file} -mk {temp_relateness_dir} -o {var_prefix} -vc 1'
+        )
+        os.system(
+            command +
+            f' -p {pheno_file} -mk {temp_relateness_dir} -o {var_prefix} -vc 1'
+        )
+        for file in temp_relateness_files:
+            os.remove(file)
+        os.remove(temp_relateness_dir)
     else:
         raise Exception(
             f"Relatness Matrix file format {type(multi_relateness)} not supported"
@@ -196,19 +216,13 @@ def gemma_multi_var_estimator(pheno, multi_relateness, var_prefix):
     if type(pheno) == np.ndarray:
         os.remove(pheno_file)
 
-    if isinstance(multi_relateness, list):
-        os.remove(temp_dir1)
-        os.remove(temp_dir2)
-        os.remove(temp_dir)
-
     return gemma_var_reader(var_prefix)
 
 
 def gemma_var_estimator(pheno, relateness, var_prefix):
 
+    rand_number = str(np.random.randint(100000))
     if type(pheno) == np.ndarray:
-        rand_number = str(np.random.randint(100000))
-        temp_dir = 'temp_dir'
         if not os.path.exists(temp_dir):
             os.mkdir(temp_dir)
         pheno_file = os.path.join(temp_dir, 'temp_pheno' + rand_number)
@@ -229,7 +243,8 @@ def gemma_var_estimator(pheno, relateness, var_prefix):
         os.system(command +
                   f' -p {pheno_file} -k {relateness} -o {var_prefix} -vc 1')
     elif type(relateness) == np.ndarray:
-        temp_relatness_dir = 'temp_relatness.txt'
+        temp_relatness_dir = os.path.join(temp_dir,
+                                          'temp_relatness_' + rand_number)
         np.savetxt(temp_relatness_dir, relateness)
         print(
             command +
@@ -364,24 +379,3 @@ class GemmaOutputReader:
         parameter = pd.read_csv(file_list[4], sep='\t', index_col=False)
 
         return bv, gemma, hyperparameter, parameter
-
-
-if __name__ == '__main__':
-    # bv, gemma, hyper, para = gemmaOutputReader.read_output('./gemma_output/')
-    train_file = "./bimbam_data/bimbam_train"
-    phenotype_file = "./bimbam_data/phenotype_train"
-    output = "./gemma_output/training_output"
-    # gemma_train(train_file, phenotype_file, output)
-    test_file = "./bimbam_data/bimbam_test"
-    phenotype_file = "./bimbam_data/phenotype_test"
-
-    # gemma_test(test_file, phenotype_file,
-    #            "./output",
-    #            test_output="./gemma_test_output")
-
-    geno_tr = "./bimbam_data/bimbam_train"
-    tr_output = "./gamma_output"
-    prefix = "output"
-
-    gor = GemmaOutputReader(geno_tr, prefix, output_path=tr_output)
-    print(gor.pred_train())

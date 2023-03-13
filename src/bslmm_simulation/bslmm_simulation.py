@@ -3,9 +3,11 @@ import numpy as np
 from pheno_simulation import phenotype_generator as generator, train_test_split
 import gemma_cross_validation as gcv
 from multiprocessing import Process
+import sys
 
-bimbam_path = './bimbam_data/bimbam_10000_full_false_major_minor.txt'
-error_save_path = './bimbam_data/CVc_error_simulation_bslmm.csv'
+sys.path.append('./src')
+import arguments
+
 num_processes = os.cpu_count()
 print("num_processes: ", num_processes)
 processes = []
@@ -27,10 +29,8 @@ def multi_process_helper(simulation_times=1000):
         p.start()
 
 
-def bslmm_simulation(m=1000,
-                     bimbam_dir=bimbam_path,
-                     nfolds=10,
-                     error_data_dir=error_save_path):
+def bslmm_simulation(num_large_effect, large_effect, small_effect,
+                     simulation_times, bimbam_dir, error_data_dir, nfolds):
     # create the error file
     if not os.path.exists(error_data_dir):
         with open(error_data_dir, 'w') as f:
@@ -39,11 +39,12 @@ def bslmm_simulation(m=1000,
             ]
             f.write(','.join(head) + '\n')
 
-    for i in range(m):
+    for i in range(simulation_times):
 
         print(f'# Simulation {i} time #')
         # generate the phenotype
-        bimbam_data, pheno = generator(bimbam_dir)
+        bimbam_data, pheno = generator(bimbam_dir, num_large_effect,
+                                       large_effect, small_effect)
         (geno_tr, pheno_tr), (geno_te,
                               pheno_te) = train_test_split(bimbam_data, pheno)
 
@@ -61,4 +62,9 @@ def bslmm_simulation(m=1000,
 
 if __name__ == '__main__':
     # multi_process_helper(100)
-    bslmm_simulation(2)
+    bimbam_path = './bimbam_data/bimbam_10000_full_false_major_minor.txt'
+    error_save_path = './simulation_out/CVc_error_simulation_bslmm.csv'
+    args = arguments.get_args()
+    bslmm_simulation(args.num_large_effect, args.large_effect,
+                     args.small_effect, args.simulation_times,
+                     args.bimbam_path, args.bslmm_save_path, args.n_folds)
