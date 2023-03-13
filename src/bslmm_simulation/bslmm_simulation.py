@@ -30,7 +30,8 @@ def multi_process_helper(simulation_times=1000):
 
 
 def bslmm_simulation(num_large_effect, large_effect, small_effect,
-                     simulation_times, bimbam_dir, error_data_dir, nfolds):
+                     simulation_times, bimbam_dir, error_data_dir,
+                     num_fixed_snps, nfolds):
     # create the error file
     if not os.path.exists(error_data_dir):
         with open(error_data_dir, 'w') as f:
@@ -49,8 +50,8 @@ def bslmm_simulation(num_large_effect, large_effect, small_effect,
                               pheno_te) = train_test_split(bimbam_data, pheno)
 
         # simulate the error
-        data = gcv.one_time_simulation(geno_tr, geno_te, pheno_tr, pheno_te,
-                                       nfolds)
+        data = one_time_simulation(num_fixed_snps, geno_tr, geno_te, pheno_tr,
+                                   pheno_te, nfolds)
 
         try:
             with open(error_data_dir, 'a') as f:
@@ -60,6 +61,13 @@ def bslmm_simulation(num_large_effect, large_effect, small_effect,
             print(data)
 
 
+def one_time_simulation(num_fixed_snps, *args, **kwargs):
+    if num_fixed_snps == -1:
+        gcv.simulation_with_all_snps(*args, **kwargs)
+    else:
+        gcv.simulation_with_num_fixed_snps(num_fixed_snps, *args, **kwargs)
+
+
 if __name__ == '__main__':
     # multi_process_helper(100)
     bimbam_path = './bimbam_data/bimbam_10000_full_false_major_minor.txt'
@@ -67,4 +75,5 @@ if __name__ == '__main__':
     args = arguments.get_args()
     bslmm_simulation(args.num_large_effect, args.large_effect,
                      args.small_effect, args.simulation_times,
-                     args.bimbam_path, args.bslmm_save_path, args.n_folds)
+                     args.bimbam_path, args.bslmm_save_path,
+                     args.num_fixed_snps, args.n_folds)

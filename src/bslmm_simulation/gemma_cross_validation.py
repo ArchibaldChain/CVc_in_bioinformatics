@@ -9,6 +9,9 @@ import utils as u
 from utils import get_folds_indices, timing
 import re
 
+train_output_prefix = "train_ouput"
+test_output_prefix = "test_output"
+
 
 @timing
 def bslmm_train_test(geno_tr: pd.DataFrame,
@@ -17,8 +20,8 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
                      pheno_te: np.ndarray,
                      train_output_prefix="train_output",
                      test_output_prefix="test_output",
-                     relateness_tr=None,
-                     relateness_full=None):
+                     relatedness_tr=None,
+                     relatedness_full=None):
 
     train_output = './output'
     var_prefix = 'var_est'
@@ -29,7 +32,7 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
     # X_te = geno_te.iloc[n_tr:, 3:].T.to_numpy()
 
     # training and testing using GEMMA
-    if relateness_tr is None:
+    if relatedness_tr is None:
         # train and test
         gemma_train(geno_tr, pheno_tr, prefix=train_output_prefix)
         # creating the full geno file for testing
@@ -42,8 +45,33 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
                    train_output_path=train_output)
 
         # calculate the variance compoents from gemma output
-        K = 1 / p * X @ X.T  # relateness matrix for training set
+        K = 1 / p * X @ X.T  # relatedness matrix for training set
         sigmas = gemma_var_estimator(pheno_tr, K, var_prefix)
+        assert len(
+            sigmas) == 2, f'Incorrect sigma number detected. sigmas = {sigmas}'
+
+    elif relatedness_full is not None:
+        # train and test
+        gemma_train(geno_tr,
+                    pheno_tr,
+                    prefix=train_output_prefix,
+                    related_matrix=relatedness_tr)
+        # creating the full geno file for testing
+        geno_full, pheno_full = bimbam.test_data_parperation(
+            geno_tr, geno_te, pheno_tr, pheno_te)
+        gemma_test(geno_full,
+                   pheno_full,
+                   train_prefix=train_output_prefix,
+                   test_prefix=test_output_prefix,
+                   train_output_path=train_output,
+                   related_matrix=relatedness_full)
+
+        # calculate the variance compoents from gemma output
+        K = 1 / p * X @ X.T  # relatedness matrix for training set
+        multi_relatedness = [K, relatedness_tr]
+        sigmas = gemma_var_estimator(pheno_tr, multi_relatedness, var_prefix)
+        assert len(
+            sigmas) == 3, f'Incorrect sigma number detected. sigmas = {sigmas}'
 
     # get the test prediction
     pheno_te_pred = GemmaOutputReader.gemma_pred_reader(test_output_prefix)
@@ -51,8 +79,12 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
     return sigmas, error_te
 
 
-def cv_correction(geno_tr: pd.DataFrame, geno_te: pd.DataFrame,
-                  H_cv: np.ndarray, sigmas):
+def cv_correction(geno_tr: pd.DataFrame,
+                  geno_te: pd.DataFrame,
+                  H_cv: np.ndarray,
+                  sigmas,
+                  K_relatedness_tr: np.ndarray = None,
+                  K_relatedness_tr_te: np.ndarray = None):
 
     # extract geno data from bimbam format
     X = geno_tr.iloc[:, 3:].to_numpy().T
@@ -61,8 +93,18 @@ def cv_correction(geno_tr: pd.DataFrame, geno_te: pd.DataFrame,
     n_te = X_te.shape[0]
 
     # get data from bimbam format creating variance and covariance
-    K_tr = 1 / p * X @ X.T
-    K_te_tr = 1 / p * X_te @ X.T
+    if (K_relatedness_tr == None) or (K_relatedness_tr_te == None):
+        K_tr = 1 / p * X @ X.T
+        K_te_tr = 1 / p * X_te @ X.T
+    else:
+        assert (K_relatedness_tr.shape[0] == K_relatedness_tr.shape[1]) and (K_relatedness_tr.shape[0] == n_tr),\
+        f'Unsupported K_tr_relatedness shape {K_relatedness_tr.shape}'
+        assert (K_relatedness_tr_te.shape[0] == n_tr, K_relatedness_tr_te.shape[1] == n_te),\
+        f'Unsupported K_tr_te_relatedness shape {K_relatedness_tr_te.shape}'
+
+        K_tr = K_relatedness_tr
+        K_te_tr = K_relatedness_tr_te.T
+
     V_tr = sigmas[0] * K_tr + sigmas[1] * np.identity(n_tr)
     V_te_tr = sigmas[0] * K_te_tr
 
@@ -81,6 +123,7 @@ def cv_correction(geno_tr: pd.DataFrame, geno_te: pd.DataFrame,
 
 def gemma_cross_validation(geno_tr: pd.DataFrame,
                            pheno_tr: np.ndarray,
+                           K_relatedness: np.ndarray = None,
                            nfolds=5):
 
     # get cross-validation folds
@@ -111,15 +154,26 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
         X_k = geno_k.iloc[:, 3:].to_numpy().T.astype(np.float64)
         n_minus_k, p = X_minus_k.shape
 
-        print(X_minus_k.dtype)
-        K_kk = 1 / p * X_minus_k @ X_minus_k.T
-        K_k_minusk = 1 / p * X_k @ X_minus_k.T
+        if K_relatedness is None:
+            K_kk = 1 / p * X_minus_k @ X_minus_k.T
+            K_k_minusk = 1 / p * X_k @ X_minus_k.T
 
-        # getting error for k fold and sigma estimates
-        sigmas, error_k = bslmm_train_test(geno_minus_k, geno_k, pheno_minus_k,
-                                           pheno_k,
-                                           f"cv_{rand_num}_{k}th_fold_tr",
-                                           f"cv_{rand_num}_{k}th_fold_te")
+            # getting error for k fold and sigma estimates
+            sigmas, error_k = bslmm_train_test(geno_minus_k, geno_k,
+                                               pheno_minus_k, pheno_k,
+                                               f"cv_{rand_num}_{k}th_fold_tr",
+                                               f"cv_{rand_num}_{k}th_fold_te")
+        else:
+            K_kk = K_relatedness
+            K_k_minusk = K_relatedness[ind_minus_k_fold, :][:,
+                                                            ind_minus_k_fold]
+
+            # getting error for k fold and sigma estimates
+            sigmas, error_k = bslmm_train_test(geno_minus_k, geno_k,
+                                               pheno_minus_k, pheno_k,
+                                               f"cv_{rand_num}_{k}th_fold_tr",
+                                               f"cv_{rand_num}_{k}th_fold_te",
+                                               K_k_minusk, K_relatedness)
 
         # creating the Variance for minus-k folds and for k minus-k folds
         V_minus_k = sigmas[0] * K_kk + sigmas[1] * np.identity(n_minus_k)
@@ -156,10 +210,73 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
     return CV_error, H_cv
 
 
-def one_time_simulation(geno_tr, geno_te, pheno_tr, pheno_te, nfolds=10):
+def simulation_with_num_fixed_snps(num_fixed_snps: int,
+                                   geno_tr: pd.DataFrame,
+                                   geno_te: pd.DataFrame,
+                                   pheno_tr: np.ndarray,
+                                   pheno_te: np.ndarray,
+                                   nfolds=10):
 
-    train_output_prefix = "train_ouput"
-    test_output_prefix = "test_output"
+    # only using first num_fixed_snps for the fixed terms.
+    geno_x_tr = geno_tr.iloc[:num_fixed_snps, :]
+    geno_x_te = geno_te.iloc[:num_fixed_snps, :]
+
+    W_tr = geno_tr.iloc[:, 3:].values.T
+    W_te = geno_te.iloc[:, 3:].values.T
+    print(W_tr.shape, W_te.shape)
+
+    # using 10_000 SNPs to consturct a relatedness maatrix
+    W_full = np.concatenate([W_tr, W_te], axis=0)
+    n, sc = W_full.shape
+    K_related_full = 1 / sc * W_full @ W_full.T
+    K_tr = 1 / sc * W_tr @ W_tr.T
+    K_tr_te = 1 / sc * W_tr @ W_tr.T
+    sigmas, error_te = bslmm_train_test(geno_x_tr, geno_x_te, pheno_tr,
+                                        pheno_te, train_output_prefix,
+                                        test_output_prefix, K_tr,
+                                        K_related_full)
+
+    print('\n####Finished Training####\n', 'sigmas: ', sigmas,
+          '  test_error: ', error_te)
+
+    CV_error, H_cv = gemma_cross_validation(geno_tr,
+                                            pheno_tr,
+                                            K_relatedness=K_tr,
+                                            nfolds=nfolds)
+    print('\n####Finished Cross-validation####\n', 'CV error: ', CV_error)
+
+    CV_error_H_cv = np.mean(np.square(pheno_tr - H_cv @ pheno_tr))
+    print('CV error using H_cv: ', CV_error_H_cv)
+
+    ## save H_cv
+    H_cv_dir = './H_dir'
+    if not os.path.exists(H_cv_dir):
+        os.mkdir(H_cv_dir)
+    np.save(os.path.join(H_cv_dir, f'H_cv_{nfolds}_folds'), H_cv)
+
+    ## using h_te to predict
+    w, h_te = cv_correction(geno_tr,
+                            geno_te,
+                            H_cv,
+                            sigmas,
+                            K_relatedness_tr=K_tr,
+                            K_relatedness_tr_te=K_tr_te)
+    te_error_h_te = np.mean(np.square(pheno_te - h_te @ pheno_tr))
+    print('test error h_te: ', te_error_h_te)
+
+    # save h_te
+    print('w: ', w)
+    np.save(os.path.join(H_cv_dir, f'H_te_{nfolds}'), h_te)
+
+    print(f"CV error, w, Test error are {CV_error}, {w}, {error_te}.")
+    return CV_error, CV_error_H_cv, error_te, te_error_h_te, w
+
+
+def simulation_with_all_snps(geno_tr: pd.DataFrame,
+                             geno_te: pd.DataFrame,
+                             pheno_tr: np.ndarray,
+                             pheno_te: np.ndarray,
+                             nfolds=10):
 
     sigmas, error_te = bslmm_train_test(geno_tr, geno_te, pheno_tr, pheno_te,
                                         train_output_prefix,
@@ -210,4 +327,6 @@ if __name__ == '__main__':
     geno_te = pd.read_csv(geno_te_dir, header=None, index_col=None)
     pheno_tr = np.loadtxt(pheno_tr_dir)
     pheno_te = np.loadtxt(pheno_te_dir)
-    one_time_simulation(geno_tr, geno_te, pheno_tr, pheno_te, 10)
+    # simulation_with_all_snps(geno_tr, geno_te, pheno_tr, pheno_te, 10)
+    simulation_with_num_fixed_snps(100, geno_tr, geno_te, pheno_tr, pheno_te,
+                                   10)

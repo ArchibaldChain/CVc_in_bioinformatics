@@ -33,7 +33,7 @@ def get_args():
         type=int,
         default=500,
         help=
-        "Number of fixed terms (SNPs). Set 0 means using all SNPs as fixed terms."
+        "Number of fixed terms (SNPs). Set -1 means using all SNPs as fixed terms. "
     )
     parser.add_argument('--simulation_times', type=int, default=1000)
     parser.add_argument('--n_folds', type=int, default=10)
