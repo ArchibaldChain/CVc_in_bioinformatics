@@ -69,7 +69,8 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
         # calculate the variance compoents from gemma output
         K = 1 / p * X @ X.T  # relatedness matrix for training set
         multi_relatedness = [K, relatedness_tr]
-        sigmas = gemma_var_estimator(pheno_tr, multi_relatedness, var_prefix)
+        sigmas = gemma_multi_var_estimator(pheno_tr, multi_relatedness,
+                                           var_prefix)
         assert len(
             sigmas) == 3, f'Incorrect sigma number detected. sigmas = {sigmas}'
 

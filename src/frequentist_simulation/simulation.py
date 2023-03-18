@@ -313,7 +313,7 @@ def cross_validation_simulation(SNP_file='data/SNP_in_200GENE_chr1.csv',
     f_ridge = open(file_ridge, 'a')
 
     for i in range(simulation_times):
-        print(f'------ simulation: {i} seconds -----')
+        print(f'------ simulation: {i} step -----')
         start_time_i = time.time()
         # simluate y
         y = phenotype_simulator(SNPs, num_large_effect, large_effect,
