@@ -1,113 +1,131 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-import os, sys
-
-sys.path.append('./src')
-from utils import *
-from FAST_LMM.FaST_LMM import FASTLMM
-from bslmm_simulation import gemma_operator as gemma
-from arguments import get_args
-from frequentist_simulation.H_functions import *
+import os
+from FAST_LMM import FASTLMM
+from k_folds_cv_helper import *
 
 
 ## load the data
-def load(file) -> np.ndarray:
-    data = pd.read_csv(file)
+def load(file='data/SNP_in_200GENE_chr1.csv'):
+    print(os.getcwd())
+    print(os.listdir('./data'))
+    data = pd.read_csv(file, error_bad_lines=False)
+    print(data.head())
 
-    data_drop_gene = data.drop('GENE', axis=1)
-    data_drop_gene.drop_duplicates(inplace=True)
-    data_drop = data_drop_gene.drop('POS', axis=1)
-    data_drop_gene_selected = data_drop.sample(10_000, axis=0, random_state=0)
-    SNP = data_drop_gene_selected.values.T
+    data_selected = data.iloc[:10000, :]
+    SNP = data_selected.drop(['GENE', 'POS'], axis=1).T
     return SNP
 
 
-def phenotype_simulator(
-        SNPs,
-        num_large_effect=10,
-        large_effect=400,
-        small_effect=2,
-        h2=0.5  #hertability
-):
+def one_time_simulation(SNP):
     ## get the Beta
-    d = num_large_effect
+
+    large_effect = 400
+    d = 10
     beta_large = np.random.normal(0, np.sqrt(large_effect), d)
 
-    n, p = SNPs.shape
-    beta_small = np.random.normal(0, np.sqrt(small_effect), p - d)
+    n = SNP.shape[1]
+    small_effect = 2
+    beta_small = np.random.normal(0, np.sqrt(small_effect), n - d)
 
     beta = np.concatenate([beta_large, beta_small])
 
     ## calculate residual and y
-    temp = SNPs @ beta
+    temp = SNP.values @ beta
     sigma_g2 = np.var(temp, ddof=1)  # get the overall variance
+
+    h2 = 0.5  # heritability
 
     sigma_e2 = sigma_g2 * (1 - h2) / h2
     beta0 = np.random.normal(0, np.sqrt(large_effect))
     beta_ = np.insert(beta, 0, beta0)
 
-    residual = np.random.normal(0, np.sqrt(sigma_e2), n)
-    y = SNPs @ beta + residual + beta0
+    residual = np.random.normal(0, np.sqrt(sigma_e2), len(SNP))
+    y = SNP.values @ beta + residual + beta0
 
     ## standardnize y
     mu_y = np.mean(y)
     sd_y = np.std(y, ddof=1)
     y = (y - mu_y) / sd_y
-    return y
-
-
-def cross_validation_correction(SNPs: np.ndarray,
-                                y: np.ndarray,
-                                num_fixed_snps=500,
-                                n_folds=10):
 
     ## train test split
     # add 1 to the first row
-    n = SNPs.shape[0]
-    data = np.concatenate([np.ones([n, 1]), SNPs], axis=1)
-    G_tr, G_te, y_tr, y_te = train_test_split(data, y, test_size=0.2)
-    d = num_fixed_snps
+    data = np.concatenate([np.ones([SNP.shape[0], 1]), SNP.values], axis=1)
+    G_tr, G_te, y_tr, y_te = train_test_split(data,
+                                              y,
+                                              test_size=0.2,
+                                              random_state=123)
+    d = 500
     X_tr, X_te = G_tr[:, :d + 1], G_te[:, :d + 1]
     W_tr, W_te = G_tr[:, 1:], G_te[:, 1:]
-    n_tr, sc = W_tr.shape
 
     ## using FaST-LMM
+    sc = W_tr.shape[1]
     fast = FASTLMM(lowRank=True, REML=False)
     fast.fit(X_tr, y_tr, 1 / np.sqrt(sc) * W_tr)
-    sigmas = (fast.sigma_g2, fast.sigma_e2)
-    print(sigmas)
-
-    ##  Using GEMMA to estimate the variance component
-    K_relatedness = 1 / sc * W_tr @ W_tr.T
-    #sigmas = gemma.gemma_var_estimator(y_tr, K_relatedness, 'var_component')
-    #print(sigmas)
-    V = sigmas[0] * K_relatedness + sigmas[1] * np.identity(n_tr)
-    V_inv = inv(V)
 
     ## calculating H for 10-folds CV
-    ### OLS
-    H_cv_ols_k = getHcv_for_Kfolds(X_tr, y_tr, H_function_ols, nfolds=n_folds)
+    def H_function_ols(X_minus_k, X_k, y_minus_k, y_k):
+        return X_k @ u.inv(X_minus_k.T @ X_minus_k) @ X_minus_k.T
 
-    ### WLS
+    H_cv_ols_k = getHcv_for_Kfolds(X_tr, y_tr, H_function_ols, nfolds=10)
+
+    def H_function_wls(X_minus_k, X_k, y_minus_k, y_k, V):
+        V_inv = u.inv(V)
+        inverse = u.inv(X_minus_k.T @ V_inv @ X_minus_k)
+        return X_k @ inverse @ X_minus_k.T @ V_inv
+
     H_cv_wls_k = getHcv_for_Kfolds(X_tr,
                                    y_tr,
                                    H_function_wls,
-                                   nfolds=n_folds,
-                                   V=V)
+                                   fast.V(),
+                                   nfolds=10)
 
-    ### LMM
-    H_cv_lmm_k = H_function_lmm(X_tr, H_cv_wls_k, V=V)
+    def H_function_lmm():
+        n_tr = X_tr.shape[0]
+        H_cv_lmm_k = np.zeros([n_tr, n_tr])
+        V_inv = fast.V_inv()
+        V = fast.V()
+        inverse = u.inv(X_tr.T @ V_inv @ X_tr)
+        H_cv_temp = X_tr @ inverse @ X_tr.T @ V_inv
 
-    #### Ridge
+        folds_indices = get_folds_indices(10, n_tr)
+        # get H_temp
+        for Kindices in folds_indices:
+            ia, ib = Kindices
+            indices_minus_K = list(range(0, ia)) + list(range(ib, n_tr))
+
+            V_minus_k = V[indices_minus_K, :][:, indices_minus_K]
+            X_k = X_tr[ia:ib, :]
+            X_minus_k = X_tr[indices_minus_K, ]
+
+            V_inv = u.inv(V_minus_k)
+
+            H_cv_temp = X_minus_k @ inverse @ X_minus_k.T @ V_inv
+
+            temp_u = V[ia:ib, indices_minus_K] @ u.inv(V_minus_k) @ (
+                np.identity(n_tr - (ib - ia)) -
+                H_cv_temp  #[indices_minus_K,:][:, indices_minus_K]
+            )
+
+            H_cv_lmm_k[ia:ib,
+                       indices_minus_K] = H_cv_wls_k[ia:ib,
+                                                     indices_minus_K] + temp_u
+        return H_cv_lmm_k
+
+    H_cv_lmm_k = H_function_lmm()
+
     lamb = 100
-    H_cv_ridge_k = getHcv_for_Kfolds(X_tr,
-                                     y_tr,
-                                     H_function_ridge,
-                                     nfolds=n_folds,
-                                     lamb=lamb)
 
-    ## get random generated and sampled from X and W
+    def H_function_ridge(X_minus_k, X_k, y_minus_k, y_k):
+        return X_k @ u.inv(X_minus_k.T @ X_minus_k + lamb *
+                           np.identity(X_minus_k.shape[1])) @ X_minus_k.T
+
+    H_cv_ridge_k = getHcv_for_Kfolds(X_tr, y_tr, H_function_ridge, nfolds=10)
+
+    ## get random generated and sampled X and W
     n_tr = X_tr.shape[0]
     n_te = X_te.shape[0]
     W_te_random = np.random.choice([0, 1, 2], [n_te, sc])
@@ -124,21 +142,23 @@ def cross_validation_correction(SNPs: np.ndarray,
     Error_cv_ols = 1 / n_tr * (np.sum(np.square(y_tr - H_cv_ols_k @ y_tr)))
     Error_cv_ridge = 1 / n_tr * (np.sum(np.square(y_tr - H_cv_ridge_k @ y_tr)))
 
+    V_inv = fast.V_inv()
     # using estimated sigma_g2 to get the Covariance(y_tr, y_te)
-    V_tr_te = 1 / sc * sigmas[0] * W_tr @ W_te.T
+    V_tr_te = 1 / sc * fast.sigma_g2 * W_tr @ W_te.T
 
-    H_te_wls = X_te @ inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv
-    H_te_lmm = H_te_wls + V_tr_te.T @ V_inv @ (
-        np.identity(n_tr) - X_tr @ inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv)
-    H_te_ols = X_te @ inv(X_tr.T @ X_tr) @ X_tr.T
-    H_te_ridge = X_te @ inv(X_tr.T @ X_tr +
-                            lamb * np.identity(X_tr.shape[1])) @ X_tr.T
+    H_te_wls = X_te @ u.inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv
+    H_te_lmm = H_te_wls + V_tr_te.T @ V_inv @ (np.identity(
+        n_tr) - X_tr @ u.inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv)
+    H_te_ols = X_te @ u.inv(X_tr.T @ X_tr) @ X_tr.T
+    H_te_ridge = X_te @ u.inv(X_tr.T @ X_tr +
+                              lamb * np.identity(X_tr.shape[1])) @ X_tr.T
 
     Error_te_lmm = 1 / n_te * (np.sum(np.square(y_te - H_te_lmm @ y_tr)))
     Error_te_wls = 1 / n_te * (np.sum(np.square(y_te - H_te_wls @ y_tr)))
     Error_te_ols = 1 / n_te * (np.sum(np.square(y_te - H_te_ols @ y_tr)))
     Error_te_ridge = 1 / n_te * (np.sum(np.square(y_te - H_te_ridge @ y_tr)))
 
+    V = fast.V()
     Correction_lmm = 2 * (1 / n_tr * np.trace(H_cv_lmm_k @ V) -
                           1 / n_te * np.trace(H_te_lmm @ V_tr_te))
     Correction_wls = 2 * (1 / n_tr * np.trace(H_cv_wls_k @ V) -
@@ -151,17 +171,17 @@ def cross_validation_correction(SNPs: np.ndarray,
     Error_cv_lmm_c = Error_cv_lmm + Correction_lmm
     Error_cv_wls_c = Error_cv_wls + Correction_wls
     Error_cv_ols_c = Error_cv_ols + Correction_ols
-    Error_cv_ridge_c = Error_cv_ridge + Correction_ridge
+    Error_cv_ridge_c = Error_cv_ridge + Correction_ols
 
-    # using  generated Test set to correct
-    V_tr_te_random = 1 / sc * sigmas[0] * W_tr @ W_te_random.T
+    # using  te_generated to correct
+    V_tr_te_random = 1 / sc * fast.sigma_g2 * W_tr @ W_te_random.T
 
-    H_te_wls_r = X_te_random @ inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv
-    H_te_lmm_r = H_te_wls_r + V_tr_te_random.T @ V_inv @ (
-        np.identity(n_tr) - X_tr @ inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv)
-    H_te_ols_r = X_te_random @ inv(X_tr.T @ X_tr) @ X_tr.T
-    H_te_ridge_r = X_te_random @ inv(X_tr.T @ X_tr + lamb *
-                                     np.identity(X_tr.shape[1])) @ X_tr.T
+    H_te_wls_r = X_te_random @ u.inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv
+    H_te_lmm_r = H_te_wls_r + V_tr_te_random.T @ V_inv @ (np.identity(
+        n_tr) - X_tr @ u.inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv)
+    H_te_ols_r = X_te_random @ u.inv(X_tr.T @ X_tr) @ X_tr.T
+    H_te_ridge_r = X_te_random @ u.inv(X_tr.T @ X_tr + lamb *
+                                       np.identity(X_tr.shape[1])) @ X_tr.T
 
     Correction_lmm_r = 2 * (1 / n_tr * np.trace(H_cv_lmm_k @ V) -
                             1 / n_te * np.trace(H_te_lmm_r @ V_tr_te_random))
@@ -175,17 +195,17 @@ def cross_validation_correction(SNPs: np.ndarray,
     Error_cv_lmm_c_r = Error_cv_lmm + Correction_lmm_r
     Error_cv_wls_c_r = Error_cv_wls + Correction_wls_r
     Error_cv_ols_c_r = Error_cv_ols + Correction_ols_r
-    Error_cv_ridge_c_r = Error_cv_ridge + Correction_ridge_r
+    Error_cv_ridge_c_r = Error_cv_ridge + Correction_ols_r
 
-    # using sampled dataset from training data to correct
-    V_tr_te_sample = 1 / sc * sigmas[0] * W_tr @ W_te_sample.T
+    # using  sampled from trainint data to correct
+    V_tr_te_sample = 1 / sc * fast.sigma_g2 * W_tr @ W_te_sample.T
 
-    H_te_wls_s = X_te_sample @ inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv
-    H_te_lmm_s = H_te_wls_s + V_tr_te_sample.T @ V_inv @ (
-        np.identity(n_tr) - X_tr @ inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv)
-    H_te_ols_s = X_te_sample @ inv(X_tr.T @ X_tr) @ X_tr.T
-    H_te_ridge_s = X_te_sample @ inv(X_tr.T @ X_tr + lamb *
-                                     np.identity(X_tr.shape[1])) @ X_tr.T
+    H_te_wls_s = X_te_sample @ u.inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv
+    H_te_lmm_s = H_te_wls_s + V_tr_te_sample.T @ V_inv @ (np.identity(
+        n_tr) - X_tr @ u.inv(X_tr.T @ V_inv @ X_tr) @ X_tr.T @ V_inv)
+    H_te_ols_s = X_te_sample @ u.inv(X_tr.T @ X_tr) @ X_tr.T
+    H_te_ridge_s = X_te_sample @ u.inv(X_tr.T @ X_tr + lamb *
+                                       np.identity(X_tr.shape[1])) @ X_tr.T
 
     Correction_lmm_s = 2 * (1 / n_tr * np.trace(H_cv_lmm_k @ V) -
                             1 / n_te * np.trace(H_te_lmm_s @ V_tr_te_sample))
@@ -199,8 +219,12 @@ def cross_validation_correction(SNPs: np.ndarray,
     Error_cv_lmm_c_s = Error_cv_lmm + Correction_lmm_s
     Error_cv_wls_c_s = Error_cv_wls + Correction_wls_s
     Error_cv_ols_c_s = Error_cv_ols + Correction_ols_s
-    Error_cv_ridge_c_s = Error_cv_ridge + Correction_ridge_s
+    Error_cv_ridge_c_s = Error_cv_ridge + Correction_ols_s
 
+    lmm_error = [
+        Error_cv_lmm, Error_cv_lmm_c, Error_cv_lmm_c_r, Error_cv_lmm_c_s,
+        Error_te_lmm
+    ]
     print(
         'The CV error of   lmm is {:.4f}, wls is {:.4f}, and ols is {:.4f}, and ridge is {:.4f}'
         .format(Error_cv_lmm, Error_cv_wls, Error_cv_ols, Error_cv_ridge))
@@ -239,19 +263,13 @@ def cross_validation_correction(SNPs: np.ndarray,
     return lmm_error, wls_error, ols_error, ridge_error
 
 
-def create_files(save_path, num_fixed_snps):
-    save = os.path.join(save_path, f"{num_fixed_snps}_fixed_snps")
-    if not os.path.exists(save):
-        os.makedirs(save, exist_ok=True)
+if __name__ == '__main__':
+    start_time = time.time()
 
-    file_lmm = os.path.join(save_path, f"{num_fixed_snps}_fixed_snps",
-                            f'CV_errors_lmm.csv')
-    file_wls = os.path.join(save_path, f"{num_fixed_snps}_fixed_snps",
-                            f'CV_errors_wls.csv')
-    file_ols = os.path.join(save_path, f"{num_fixed_snps}_fixed_snps",
-                            f'CV_errors_ols.csv')
-    file_ridge = os.path.join(save_path, f"{num_fixed_snps}_fixed_snps",
-                              f'CV_errors_ridge.csv')
+    file_lmm = './data/CV_errors_lmm.csv'
+    file_wls = './data/CV_errors_wls.csv'
+    file_ols = './data/CV_errors_ols.csv'
+    file_ridge = './data/CV_errors_ridge.csv'
 
     head_lmm = [
         'Error_cv_lmm', 'Error_cv_lmm_c', 'Error_cv_lmm_c_r',
@@ -292,57 +310,33 @@ def create_files(save_path, num_fixed_snps):
             head = ','.join(head_ridge)
             f.write(head)
             f.write('\n')
-    return file_lmm, file_wls, file_ols, file_ridge
 
+    SNP = load()
 
-def cross_validation_simulation(SNP_file='data/SNP_in_200GENE_chr1.csv',
-                                save_path='simulation_output',
-                                num_fixed_snps=500,
-                                simulation_times=1000,
-                                num_large_effect=10,
-                                large_effect=400,
-                                small_effect=2,
-                                n_folds=10):
-    start_time = time.time()
-
-    SNPs = load(SNP_file)
-    file_lmm, file_wls, file_ols, file_ridge =\
-          create_files(save_path, num_fixed_snps)
-
-    # open the file in advance to save some time
     f_lmm = open(file_lmm, 'a')
     f_wls = open(file_wls, 'a')
     f_ols = open(file_ols, 'a')
     f_ridge = open(file_ridge, 'a')
 
-    for i in range(simulation_times):
-        print(f'------ simulation: {i} step -----')
+    for i in range(158):
         start_time_i = time.time()
-        # simluate y
-        y = phenotype_simulator(SNPs, num_large_effect, large_effect,
-                                small_effect)
-        # get CV error and correction
-        lmm, wls, ols, ridge = cross_validation_correction(SNPs,
-                                                           y,
-                                                           num_fixed_snps,
-                                                           n_folds=n_folds)
+        lmm, wls, ols, ridge = one_time_simulation(SNP)
         temp = ','.join([str(s) for s in lmm])
+        print(temp)
         f_lmm.write(temp)
         f_lmm.write('\n')
 
-        temp = ','.join([str(s) for s in wls])
-        f_wls.write(temp)
+        f_wls.write(','.join([str(s) for s in wls]))
         f_wls.write('\n')
 
-        temp = ','.join([str(s) for s in ols])
-        f_ols.write(temp)
+        f_ols.write(','.join([str(s) for s in ols]))
         f_ols.write('\n')
 
-        temp = ','.join([str(s) for s in ridge])
-        f_ridge.write(temp)
+        f_ridge.write(','.join([str(s) for s in ridge]))
         f_ridge.write('\n')
-        time_period = round(time.time() - start_time_i, 4)
-        print(f'------ simulation: {i}, using {time_period} seconds -----')
+        print('------ simulation: {}, {:.4f} seconds -----'.format(
+            i,
+            time.time() - start_time_i))
 
     f_lmm.close()
     f_wls.close()
@@ -350,12 +344,3 @@ def cross_validation_simulation(SNP_file='data/SNP_in_200GENE_chr1.csv',
     f_ridge.close()
 
     print('------ {:.4f} seconds -----'.format(time.time() - start_time))
-
-
-if __name__ == "__main__":
-    args = get_args()
-
-    cross_validation_simulation(args.SNP_file, args.save_path,
-                                args.num_fixed_snps, args.simulation_times,
-                                args.num_large_effect, args.large_effect,
-                                args.small_effect, args.n_folds)

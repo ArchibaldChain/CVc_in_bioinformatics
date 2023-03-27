@@ -17,10 +17,9 @@ def get_args():
         '--bimbam_path',
         type=str,
         default='./bimbam_data/bimbam_10000_full_false_major_minor.txt')
-    parser.add_argument(
-        '--bslmm_save_path',
-        type=str,
-        default='./simulation_output/CVc_error_simulation_bslmm.csv')
+    parser.add_argument('--bslmm_save_path',
+                        type=str,
+                        default='./simulation_output/bslmm_CVc')
 
     # phenotype generation related arguments
     parser.add_argument('--num_large_effect', type=int, default=10)

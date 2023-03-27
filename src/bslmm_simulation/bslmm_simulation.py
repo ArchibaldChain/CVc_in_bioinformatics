@@ -34,6 +34,11 @@ def bslmm_simulation(num_large_effect, large_effect, small_effect,
                      num_fixed_snps, nfolds):
     # create the error file
     if not os.path.exists(error_data_dir):
+        os.makedirs(error_data_dir, exist_ok=True)
+
+    file_name = f"bslmm_{num_fixed_snps}_fixed_snps_CV_test_error.csv"
+    error_data_dir = os.path.join(error_data_dir, file_name)
+    if not os.path.exists(error_data_dir):
         with open(error_data_dir, 'w') as f:
             head = [
                 'CV_error', 'CV_error_H_cv', 'te_error', 'te_error_h_te', 'w'
@@ -57,8 +62,11 @@ def bslmm_simulation(num_large_effect, large_effect, small_effect,
             with open(error_data_dir, 'a') as f:
                 dataline = [str(x) for x in data]
                 f.write(','.join(dataline) + '\n')
-        except:
+        except Exception as e:
+            print(e)
             print(data)
+            print('*************File print error')
+            raise e
 
 
 def one_time_simulation(num_fixed_snps, *args, **kwargs):
