@@ -115,8 +115,7 @@ def cv_correction(geno_tr: pd.DataFrame,
     h_te = X_te @ tmp\
             + (sigmas[0]) * K_te_tr @ V_tr_inv @  (np.identity(n_tr) - X @ tmp)
 
-    w = 1 / n_tr * (np.trace(H_cv @ V_tr)) - 1 / n_te * (np.trace(
-        h_te @ V_te_tr.T))
+    w = 1 / n_tr * (np.trace(H_cv @ V_tr)) - 1 / n_te * (np.trace(h_te @ V_te_tr.T))
     w = 2 * w
 
     return w, h_te

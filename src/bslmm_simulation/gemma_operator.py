@@ -167,15 +167,17 @@ def gemma_multi_var_estimator(pheno, multi_relatedness, var_prefix):
     if isinstance(multi_relatedness, str):
         if not os.path.exists(multi_relatedness):
             raise FileNotFoundError(multi_relatedness)
-        print(command +
-              f' -p {pheno_file} -mk {multi_relatedness} -o {var_prefix} -vc 1')
+        print(
+            command +
+            f' -p {pheno_file} -mk {multi_relatedness} -o {var_prefix} -vc 1')
         os.system(
             command +
             f' -p {pheno_file} -mk {multi_relatedness} -o {var_prefix} -vc 1')
 
     # in case multi_relatedness is a list of relatedness files or nparray
     elif isinstance(multi_relatedness, list):
-        temp_relatedness_files = []  # store the file names of relatedness files
+        temp_relatedness_files = [
+        ]  # store the file names of relatedness files
         temp_relatedness_dir = os.path.join(
             temp_dir, 'temp_multi_relatness_path_' + rand_number)
 
@@ -253,6 +255,9 @@ def gemma_var_estimator(pheno, relatedness, var_prefix):
             command +
             f' -p {pheno_file} -k {temp_relatness_dir} -o {var_prefix} -vc 1')
         os.remove(temp_relatness_dir)
+
+    elif isinstance(relatedness, list):
+        gemma_multi_var_estimator(pheno, relatedness, var_prefix)
     else:
         raise Exception(
             f"Relatness Matrix file format {type(relatedness)} not supported")

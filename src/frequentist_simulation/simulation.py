@@ -6,7 +6,7 @@ import os, sys
 sys.path.append('./src')
 from utils import *
 from FAST_LMM.FaST_LMM import FASTLMM
-from bslmm_simulation import gemma_operator as gemma
+# from bslmm_simulation import gemma_operator as gemma
 from arguments import get_args
 from frequentist_simulation.H_functions import *
 
@@ -19,6 +19,7 @@ def load(file) -> np.ndarray:
     data_drop_gene.drop_duplicates(inplace=True)
     data_drop = data_drop_gene.drop('POS', axis=1)
     data_drop_gene_selected = data_drop.sample(10_000, axis=0, random_state=0)
+    data_drop_gene_selected = data_drop_gene_selected.sample(10_000, axis=0)
     SNP = data_drop_gene_selected.values.T
     return SNP
 
@@ -77,6 +78,7 @@ def cross_validation_correction(SNPs: np.ndarray,
     fast.fit(X_tr, y_tr, 1 / np.sqrt(sc) * W_tr)
     sigmas = (fast.sigma_g2, fast.sigma_e2)
     print(sigmas)
+    # sigmas =(0.5, 0.5)
 
     ##  Using GEMMA to estimate the variance component
     K_relatedness = 1 / sc * W_tr @ W_tr.T
@@ -100,7 +102,7 @@ def cross_validation_correction(SNPs: np.ndarray,
     H_cv_lmm_k = H_function_lmm(X_tr, H_cv_wls_k, V=V)
 
     #### Ridge
-    lamb = 100
+    lamb = 1000
     H_cv_ridge_k = getHcv_for_Kfolds(X_tr,
                                      y_tr,
                                      H_function_ridge,
