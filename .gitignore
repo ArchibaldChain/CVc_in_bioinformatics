@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+.vcf
+.csv
+./data/
+./bimbam_data/
+
+

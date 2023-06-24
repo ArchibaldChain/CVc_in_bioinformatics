@@ -77,8 +77,8 @@ def cross_validation_correction(SNPs: np.ndarray,
     fast = FASTLMM(lowRank=True, REML=False)
     fast.fit(X_tr, y_tr, 1 / np.sqrt(sc) * W_tr)
     sigmas = (fast.sigma_g2, fast.sigma_e2)
+    # sigmas = (1.51, 0.48)
     print(sigmas)
-    # sigmas =(0.5, 0.5)
 
     ##  Using GEMMA to estimate the variance component
     K_relatedness = 1 / sc * W_tr @ W_tr.T
@@ -150,6 +150,8 @@ def cross_validation_correction(SNPs: np.ndarray,
     Correction_ridge = 2 * (1 / n_tr * np.trace(H_cv_ols_k @ V) -
                             1 / n_te * np.trace(H_te_ols @ V_tr_te))
 
+    print("w")
+    print(Correction_lmm, Correction_wls, Correction_ols, Correction_ridge)
     Error_cv_lmm_c = Error_cv_lmm + Correction_lmm
     Error_cv_wls_c = Error_cv_wls + Correction_wls
     Error_cv_ols_c = Error_cv_ols + Correction_ols

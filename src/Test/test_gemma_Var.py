@@ -3,7 +3,7 @@ import sys
 
 sys.path.append('./src')
 from bslmm_simulation import gemma_operator as gemma
-from fast_lmm.FaST_LMM import FASTLMM
+from FAST_LMM.FaST_LMM import FASTLMM
 from frequentist_simulation.simulation import load
 from sklearn.model_selection import train_test_split
 
