@@ -1,0 +1,33 @@
+##
+## GEMMA Version    = 0.98.5 (2021-08-25)
+## Build profile    = /gnu/store/8rvid272yb53bgascf5c468z0jhsyflj-profile
+## GCC version      = 7.5.0
+## GSL Version      = 2.6
+## OpenBlas         = OpenBLAS 0.3.9  - OpenBLAS 0.3.9 DYNAMIC_ARCH NO_AFFINITY Prescott MAX_THREADS=128
+##   arch           = Prescott
+##   threads        = 12
+##   parallel type  = threaded
+##
+## Command Line Input = ./gemma-0.98.5 -p .temp_dir/temp_pheno36176 -mk .temp_dir/temp_multi_relatness_path_36176 -o var_est -vc 1 
+##
+## Date = Sat Jun 24 09:47:13 2023
+##
+## Summary Statistics:
+## number of total individuals = 2038
+## number of analyzed individuals = 2038
+## number of covariates = 1
+## number of phenotypes = 1
+## number of variance components = 2
+## number of total SNPs/var = 0
+## number of analyzed SNPs/var = 0
+## pve estimates =   0.356841  -0.0554386
+## se(pve) =   0.257586  0.182171
+## total pve = 0.301402
+## se(total pve) = 0.319339
+## sigma2 estimates =   1.06168  -0.163974  0.684384
+## se(sigma2) =   0.766378  0.538817  0.312842
+##
+## Computation Time:
+## total computation time = 0.0975067 min 
+## computation time break down: 
+##

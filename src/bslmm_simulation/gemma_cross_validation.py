@@ -1,16 +1,16 @@
-from gemma_operator import *
 import bimbam
 import pandas as pd
 import numpy as np
 import os, sys
 
 sys.path.append('./src')
+from GEMMA.gemma_operator import *
 import utils as u
 from utils import get_folds_indices, timing
 import re
 
-train_output_prefix = "train_ouput"
-test_output_prefix = "test_output"
+# train_output_prefix = "train_ouput"
+# test_output_prefix = "test_output"
 
 
 @timing
@@ -18,8 +18,8 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
                      geno_te: pd.DataFrame,
                      pheno_tr: np.ndarray,
                      pheno_te: np.ndarray,
-                     train_output_prefix="train_output",
-                     test_output_prefix="test_output",
+                     train_output_prefix="bslmm_train_output",
+                     test_output_prefix="bslmm_test_output",
                      relatedness_tr=None,
                      relatedness_full=None):
 
@@ -34,50 +34,62 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
     # training and testing using GEMMA
     if relatedness_tr is None:
         # train and test
-        gemma_train(geno_tr, pheno_tr, prefix=train_output_prefix)
+        gemma_bslmm_train(geno_tr, pheno_tr, prefix=train_output_prefix)
         # creating the full geno file for testing
-        geno_full, pheno_full = bimbam.test_data_parperation(
+        geno_full, pheno_full_with_NA = bimbam.test_data_parperation(
             geno_tr, geno_te, pheno_tr, pheno_te)
-        gemma_test(geno_full,
-                   pheno_full,
-                   train_prefix=train_output_prefix,
-                   test_prefix=test_output_prefix,
-                   train_output_path=train_output)
+        gemma_bslmm_test(geno_full,
+                         pheno_full_with_NA,
+                         train_prefix=train_output_prefix,
+                         test_prefix=test_output_prefix,
+                         train_output_path=train_output)
 
         # calculate the variance compoents from gemma output
         K = 1 / p * X @ X.T  # relatedness matrix for training set
         sigmas = gemma_var_estimator(pheno_tr, K, var_prefix)
+        s_e = sigmas[-1]
+        gor = GemmaOutputReader(geno_tr, train_output_prefix, relatedness_tr)
+        bslmm_sigma = gor.get_var_component()
+        bslmm_sigma[0] *= (bslmm_sigma[0] * gor.pi + bslmm_sigma[1]) * s_e
+        bslmm_sigma[1] = s_e
         assert len(
             sigmas) == 2, f'Incorrect sigma number detected. sigmas = {sigmas}'
 
     elif relatedness_full is not None:
-        # train and test
-        gemma_train(geno_tr,
-                    pheno_tr,
-                    prefix=train_output_prefix,
-                    related_matrix=relatedness_tr)
         # creating the full geno file for testing
-        geno_full, pheno_full = bimbam.test_data_parperation(
+        geno_full, pheno_full_with_NA = bimbam.test_data_parperation(
             geno_tr, geno_te, pheno_tr, pheno_te)
-        gemma_test(geno_full,
-                   pheno_full,
-                   train_prefix=train_output_prefix,
-                   test_prefix=test_output_prefix,
-                   train_output_path=train_output,
-                   related_matrix=relatedness_full)
+        # train and test
+
+        # gemma_bslmm_train(geno_full,
+        #                   pheno_full_with_NA,
+        #                   prefix=train_output_prefix,
+        #                   related_matrix=relatedness_full)
+        gemma_bslmm_test(geno_full,
+                         pheno_full_with_NA,
+                         train_prefix=train_output_prefix,
+                         test_prefix=test_output_prefix,
+                         train_output_path=train_output,
+                         related_matrix=relatedness_full)
 
         # calculate the variance compoents from gemma output
         K = 1 / p * X @ X.T  # relatedness matrix for training set
         multi_relatedness = [K, relatedness_tr]
         sigmas = gemma_multi_var_estimator(pheno_tr, multi_relatedness,
                                            var_prefix)
+        s_e = sigmas[-1]
+        gor = GemmaOutputReader(geno_tr, train_output_prefix, relatedness_tr)
+        bslmm_sigma = gor.get_var_component()
+        bslmm_sigma[0] *= gor.pi * s_e
+        bslmm_sigma[1] *= s_e
+        bslmm_sigma[2] = s_e
         assert len(
             sigmas) == 3, f'Incorrect sigma number detected. sigmas = {sigmas}'
 
     # get the test prediction
     pheno_te_pred = GemmaOutputReader.gemma_pred_reader(test_output_prefix)
     error_te = np.mean(np.square(pheno_te_pred - pheno_te))
-    return sigmas, error_te
+    return sigmas, error_te, bslmm_sigma
 
 
 def cv_correction(geno_tr: pd.DataFrame,
@@ -100,7 +112,7 @@ def cv_correction(geno_tr: pd.DataFrame,
     else:
         assert (K_relatedness_tr.shape[0] == K_relatedness_tr.shape[1]) and (K_relatedness_tr.shape[0] == n_tr),\
         f'Unsupported K_tr_relatedness shape {K_relatedness_tr.shape}'
-        assert (K_relatedness_tr_te.shape[0] == n_tr, K_relatedness_tr_te.shape[1] == n_te),\
+        assert (K_relatedness_tr_te.shape[0] == n_tr and K_relatedness_tr_te.shape[1] == n_te),\
         f'Unsupported K_tr_te_relatedness shape {K_relatedness_tr_te.shape}'
 
         K_tr = K_relatedness_tr
@@ -115,7 +127,8 @@ def cv_correction(geno_tr: pd.DataFrame,
     h_te = X_te @ tmp\
             + (sigmas[0]) * K_te_tr @ V_tr_inv @  (np.identity(n_tr) - X @ tmp)
 
-    w = 1 / n_tr * (np.trace(H_cv @ V_tr)) - 1 / n_te * (np.trace(h_te @ V_te_tr.T))
+    w = 1 / n_tr * (np.trace(H_cv @ V_tr)) - 1 / n_te * (np.trace(
+        h_te @ V_te_tr.T))
     w = 2 * w
 
     return w, h_te
@@ -163,6 +176,8 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
                                                pheno_minus_k, pheno_k,
                                                f"cv_{rand_num}_{k}th_fold_tr",
                                                f"cv_{rand_num}_{k}th_fold_te")
+            # creating the Variance for minus-k folds and for k minus-k folds
+            V_minus_k = sigmas[0] * K_kk + sigmas[1] * np.identity(n_minus_k)
         else:
             K_kk = K_relatedness
             K_k_minusk = K_relatedness[ind_minus_k_fold, :][:,
@@ -175,8 +190,11 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
                                                f"cv_{rand_num}_{k}th_fold_te",
                                                K_k_minusk, K_relatedness)
 
-        # creating the Variance for minus-k folds and for k minus-k folds
-        V_minus_k = sigmas[0] * K_kk + sigmas[1] * np.identity(n_minus_k)
+            G_temp = 1 / p * X_minus_k @ X_minus_k.T
+            # creating the Variance for minus-k folds and for k minus-k folds
+            V_minus_k = sigmas[0] * G_temp + sigmas[1] * K_kk + sigmas[
+                2] * np.identity(n_minus_k)
+
         V_minus_k_inv = u.inv(V_minus_k)
         inverse_part = u.inv(X_minus_k.T @ V_minus_k_inv @ X_minus_k)
         tmp = inverse_part @ X_minus_k.T @ V_minus_k_inv
@@ -232,9 +250,7 @@ def simulation_with_num_fixed_snps(num_fixed_snps: int,
     K_tr = 1 / sc * W_tr @ W_tr.T
     K_tr_te = 1 / sc * W_tr @ W_tr.T
     sigmas, error_te = bslmm_train_test(geno_x_tr, geno_x_te, pheno_tr,
-                                        pheno_te, train_output_prefix,
-                                        test_output_prefix, K_tr,
-                                        K_related_full)
+                                        pheno_te, K_tr, K_related_full)
 
     print('\n####Finished Training####\n', 'sigmas: ', sigmas,
           '  test_error: ', error_te)
@@ -278,9 +294,7 @@ def simulation_with_all_snps(geno_tr: pd.DataFrame,
                              pheno_te: np.ndarray,
                              nfolds=10):
 
-    sigmas, error_te = bslmm_train_test(geno_tr, geno_te, pheno_tr, pheno_te,
-                                        train_output_prefix,
-                                        test_output_prefix)
+    sigmas, error_te = bslmm_train_test(geno_tr, geno_te, pheno_tr, pheno_te)
 
     print('\n####Finished Training####\n', 'sigmas: ', sigmas,
           '  test_error: ', error_te)

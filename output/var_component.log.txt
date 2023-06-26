@@ -8,24 +8,24 @@
 ##   threads        = 12
 ##   parallel type  = threaded
 ##
-## Command Line Input = ./gemma-0.98.5 -p .temp_dir/temp_pheno35534 -k .temp_dir/temp_relatness_35534 -o var_component -vc 1 
+## Command Line Input = ./gemma-0.98.5 -p .temp_dir/temp_pheno18629 -k .temp_dir/temp_relatness_18629 -o var_component -vc 1 
 ##
-## Date = Fri Jun 23 17:56:49 2023
+## Date = Sun Jun 25 03:10:23 2023
 ##
 ## Summary Statistics:
-## number of total individuals = 2038
-## number of analyzed individuals = 2038
+## number of total individuals = 2548
+## number of analyzed individuals = 2548
 ## number of covariates = 1
 ## number of phenotypes = 1
 ## number of variance components = 1
 ## number of total SNPs/var = 0
 ## number of analyzed SNPs/var = 0
-## pve estimates =   0.699364
-## se(pve) =   0.756004
-## sigma2 estimates =   2.10431  0.298915
-## se(sigma2) =   2.27473  0.751675
+## pve estimates =   0.120625
+## se(pve) =   0.0737611
+## sigma2 estimates =   0.364241  0.87972
+## se(sigma2) =   0.22273  0.0737901
 ##
 ## Computation Time:
-## total computation time = 0.0886375 min 
+## total computation time = 0.0777148 min 
 ## computation time break down: 
 ##

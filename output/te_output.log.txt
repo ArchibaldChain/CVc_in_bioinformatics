@@ -1,0 +1,26 @@
+##
+## GEMMA Version    = 0.98.5 (2021-08-25)
+## Build profile    = /gnu/store/8rvid272yb53bgascf5c468z0jhsyflj-profile
+## GCC version      = 7.5.0
+## GSL Version      = 2.6
+## OpenBlas         = OpenBLAS 0.3.9  - OpenBLAS 0.3.9 DYNAMIC_ARCH NO_AFFINITY Prescott MAX_THREADS=128
+##   arch           = Prescott
+##   threads        = 12
+##   parallel type  = threaded
+##
+## Command Line Input = ./gemma-0.98.5 -predict 1 -g .temp_dir/geno_te11413 -epm ./output/tr_output.param.txt -emu ./output/tr_output.log.txt -p .temp_dir/pheno_tr11413 -o te_output -k .temp_dir/relatedness_dir11413 -ebv ./output/tr_output.bv.txt 
+##
+## Date = Sun Jun 25 07:13:09 2023
+##
+## Summary Statistics:
+## number of total individuals = 2548
+## number of analyzed individuals = 2038
+## number of covariates = 1
+## number of phenotypes = 1
+## number of analyzed SNPs/var = 100
+##
+## Computation Time:
+## total computation time = 1.20209 min 
+## computation time break down: 
+##      time on eigen-decomposition = 1.14669 min 
+##

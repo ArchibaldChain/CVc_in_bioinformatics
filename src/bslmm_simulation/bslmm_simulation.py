@@ -65,15 +65,16 @@ def bslmm_simulation(num_large_effect, large_effect, small_effect,
         except Exception as e:
             print(e)
             print(data)
-            print('*************File print error')
+            print('*************File print error**********')
             raise e
 
 
 def one_time_simulation(num_fixed_snps, *args, **kwargs):
     if num_fixed_snps == -1:
-        gcv.simulation_with_all_snps(*args, **kwargs)
+        return gcv.simulation_with_all_snps(*args, **kwargs)
     else:
-        gcv.simulation_with_num_fixed_snps(num_fixed_snps, *args, **kwargs)
+        return gcv.simulation_with_num_fixed_snps(num_fixed_snps, *args,
+                                                  **kwargs)
 
 
 if __name__ == '__main__':

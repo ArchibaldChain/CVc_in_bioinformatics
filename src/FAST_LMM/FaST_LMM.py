@@ -193,15 +193,6 @@ class FASTLMM:
             self.I_UUTX_sq = self.I_minus_UUT_X.T @ self.I_minus_UUT_X
             self.I_UUTX_I_UUTy = self.I_minus_UUT_X.T @ self.I_minus_UUT_y
 
-        if self.REML:
-            temp = det(self.X.T @ self.X)
-            if temp <= 0:
-                warnings.warn('X.T @ X is singular, set REML to False')
-                self.REML = False
-                self.log_XTX = 0
-            else:
-                self.log_XTX = np.log(temp)
-
     # delta_temp = None
 
     def _buffer_preCalculation_with_delta(self, delta):

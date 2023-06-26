@@ -1,0 +1,49 @@
+##
+## GEMMA Version    = 0.98.5 (2021-08-25)
+## Build profile    = /gnu/store/8rvid272yb53bgascf5c468z0jhsyflj-profile
+## GCC version      = 7.5.0
+## GSL Version      = 2.6
+## OpenBlas         = OpenBLAS 0.3.9  - OpenBLAS 0.3.9 DYNAMIC_ARCH NO_AFFINITY Prescott MAX_THREADS=128
+##   arch           = Prescott
+##   threads        = 12
+##   parallel type  = threaded
+##
+## Command Line Input = ./gemma-0.98.5 -g .temp_dir/geno_tr31774 -p .temp_dir/pheno_tr31774 -o train_ouput -bslmm 1 -k .temp_dir/relatedness_dir31774 
+##
+## Date = Sat Jun 24 09:47:00 2023
+##
+## Summary Statistics:
+## number of total individuals = 2038
+## number of analyzed individuals = 2038
+## number of covariates = 1
+## number of phenotypes = 1
+## number of total SNPs/var = 500
+## number of analyzed SNPs/var = 489
+## REMLE log-likelihood in the null model = -2550.87
+## MLE log-likelihood in the null model = -2551.45
+## pve estimate in the null model = 0.531156
+## se(pve) in the null model = 0.0312281
+## vg estimate in the null model = 0
+## ve estimate in the null model = 0
+## beta estimate in the null model = 
+## se(beta) = 
+## estimated mean = -0.00263164
+##
+## MCMC related:
+## initial value of h = 0.531156
+## initial value of rho = 0.405782
+## initial value of pi = 0.0306748
+## initial value of |gamma| = 15
+## random seed = -1
+## acceptance ratio = 0.168009
+##
+## Computation Time:
+## total computation time = 3002.8 min 
+## computation time break down: 
+##      time on calculating relatedness matrix = 0 min 
+##      time on eigen-decomposition = 1.43676 min 
+##      time on calculating UtX = 0.0227975 min 
+##      time on proposal = 0.0235703 min 
+##      time on mcmc = 3001.32 min 
+##      time on Omega = 1514.43 min 
+##
