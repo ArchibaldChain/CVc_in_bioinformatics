@@ -365,7 +365,7 @@ class GemmaOutputReader:
                  bimbam_tr_dir: Union[str, pd.DataFrame],
                  prefix: str,
                  relatedness_dir: Union[str, pd.DataFrame, None] = None,
-                 output_path: str = './outout',
+                 output_path: str = './output',
                  y=None):
 
         # get information from the training file
@@ -387,7 +387,7 @@ class GemmaOutputReader:
 
         self.s_a = 1 / (self.n * self.p) * np.sum(X)
         self.s_b = 1 / self.n * np.sum(np.diag(K))
-        self.breeding_value, self.gemma, self.hyper, self.para =\
+        self.breeding_value, self.gamma, self.hyper, self.para =\
                     GemmaOutputReader.read_output(prefix, output_path)
 
         self.rho = self.hyper.rho.mean()
@@ -450,19 +450,28 @@ class GemmaOutputReader:
             'bv.txt', 'gamma.txt', 'hyp.txt', 'log.txt', 'param.txt'
         ]
         file_list = [os.path.join(dir, prefix + '.' + s) for s in suffix_list]
-        bv = np.loadtxt(file_list[0])
+        bv = np.loadtxt(file_list[0], dtype=str)
 
-        gemma = pd.read_csv(file_list[1], sep='\t', index_col=False)
+        # filtered the NA
+        mask = bv != 'NA'
+        bv = bv[mask].astype('float')
+
         try:
-            gemma = gemma.drop('Unnamed: 300', axis=1)
-        except KeyError as e:
-            print(e)
+            gamma = pd.read_csv(file_list[1], sep='\t', index_col=False)
         except Exception as e:
-            raise e
+            print(e)
+            gamma = None
+        else:
+            try:
+                gamma = gamma.drop('Unnamed: 300', axis=1)
+            except KeyError as e:
+                print(e)
+            except Exception as e:
+                raise e
 
         hyperparameter = pd.read_csv(file_list[2], sep='\t', index_col=False)
 
         hyperparameter.rename(columns=lambda s: s.strip(), inplace=True)
         parameter = pd.read_csv(file_list[4], sep='\t', index_col=False)
 
-        return bv, gemma, hyperparameter, parameter
+        return bv, gamma, hyperparameter, parameter

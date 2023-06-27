@@ -8,19 +8,19 @@
 ##   threads        = 12
 ##   parallel type  = threaded
 ##
-## Command Line Input = ./gemma-0.98.5 -predict 1 -g .temp_dir/geno_te11413 -epm ./output/tr_output.param.txt -emu ./output/tr_output.log.txt -p .temp_dir/pheno_tr11413 -o te_output -k .temp_dir/relatedness_dir11413 -ebv ./output/tr_output.bv.txt 
+## Command Line Input = ./gemma-0.98.5 -predict 1 -g .temp_dir/geno_te26323 -epm ./output/bslmm_tr_output.param.txt -emu ./output/bslmm_tr_output.log.txt -p .temp_dir/pheno_tr26323 -o bslmm_te_output -k .temp_dir/relatedness_dir26323 -ebv ./output/bslmm_tr_output.bv.txt 
 ##
-## Date = Sun Jun 25 07:13:09 2023
+## Date = Mon Jun 26 02:54:46 2023
 ##
 ## Summary Statistics:
 ## number of total individuals = 2548
 ## number of analyzed individuals = 2038
 ## number of covariates = 1
 ## number of phenotypes = 1
-## number of analyzed SNPs/var = 100
+## number of analyzed SNPs/var = 2
 ##
 ## Computation Time:
-## total computation time = 1.20209 min 
+## total computation time = 1.49605 min 
 ## computation time break down: 
-##      time on eigen-decomposition = 1.14669 min 
+##      time on eigen-decomposition = 1.44065 min 
 ##

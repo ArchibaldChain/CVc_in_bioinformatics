@@ -1,3 +1,4 @@
+import warnings
 from numpy.linalg import inv as inv_
 from numpy.linalg import pinv
 from numpy.linalg import LinAlgError
@@ -14,6 +15,7 @@ def inv(matrix):
     try:
         inv_mat = inv_(matrix)
     except LinAlgError as lae:
+        warnings.warn(f"Singluar matrix with shape {matrix.shape}")
         if str(lae) != "Singular matrix":
             print('shape is {}'.format(matrix.shape))
             raise lae

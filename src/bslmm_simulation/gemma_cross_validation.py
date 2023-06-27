@@ -1,3 +1,5 @@
+import warnings
+import traceback
 import bimbam
 import pandas as pd
 import numpy as np
@@ -18,8 +20,8 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
                      geno_te: pd.DataFrame,
                      pheno_tr: np.ndarray,
                      pheno_te: np.ndarray,
-                     train_output_prefix="bslmm_train_output",
-                     test_output_prefix="bslmm_test_output",
+                     train_output_prefix="bslmm_tr_output",
+                     test_output_prefix="bslmm_te_output",
                      relatedness_tr=None,
                      relatedness_full=None):
 
@@ -49,11 +51,14 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
         sigmas = gemma_var_estimator(pheno_tr, K, var_prefix)
         s_e = sigmas[-1]
         gor = GemmaOutputReader(geno_tr, train_output_prefix, relatedness_tr)
-        bslmm_sigma = gor.get_var_component()
-        bslmm_sigma[0] *= (bslmm_sigma[0] * gor.pi + bslmm_sigma[1]) * s_e
-        bslmm_sigma[1] = s_e
-        assert len(
-            sigmas) == 2, f'Incorrect sigma number detected. sigmas = {sigmas}'
+        s_a, s_b = gor.get_var_component()
+        print(s_e, s_a, s_b)
+        bslmm_sigma = [(s_a * (gor.pi**2) + s_b) * s_e, s_e]
+
+        if len(sigmas) == 2:
+            tb = traceback.format_exc()
+            warnings.warn(
+                f'Incorrect sigma number detected. sigmas = {sigmas} \n' + tb)
 
     elif relatedness_full is not None:
         # creating the full geno file for testing
@@ -61,10 +66,10 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
             geno_tr, geno_te, pheno_tr, pheno_te)
         # train and test
 
-        # gemma_bslmm_train(geno_full,
-        #                   pheno_full_with_NA,
-        #                   prefix=train_output_prefix,
-        #                   related_matrix=relatedness_full)
+        gemma_bslmm_train(geno_full,
+                          pheno_full_with_NA,
+                          prefix=train_output_prefix,
+                          related_matrix=relatedness_full)
         gemma_bslmm_test(geno_full,
                          pheno_full_with_NA,
                          train_prefix=train_output_prefix,
@@ -73,18 +78,18 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
                          related_matrix=relatedness_full)
 
         # calculate the variance compoents from gemma output
-        K = 1 / p * X @ X.T  # relatedness matrix for training set
-        multi_relatedness = [K, relatedness_tr]
+        G = 1 / p * X @ X.T  # relatedness matrix for training set
+        multi_relatedness = [G, relatedness_tr]
         sigmas = gemma_multi_var_estimator(pheno_tr, multi_relatedness,
                                            var_prefix)
         s_e = sigmas[-1]
         gor = GemmaOutputReader(geno_tr, train_output_prefix, relatedness_tr)
-        bslmm_sigma = gor.get_var_component()
-        bslmm_sigma[0] *= gor.pi * s_e
-        bslmm_sigma[1] *= s_e
-        bslmm_sigma[2] = s_e
-        assert len(
-            sigmas) == 3, f'Incorrect sigma number detected. sigmas = {sigmas}'
+        s_a, s_b = gor.get_var_component()
+        bslmm_sigma = [s_a * (gor.pi**2) * s_e, s_b * s_e, s_e]
+        if len(sigmas) == 3:
+            tb = traceback.format_exc()
+            warnings.warn(
+                f'Incorrect sigma number detected. sigmas = {sigmas} \n' + tb)
 
     # get the test prediction
     pheno_te_pred = GemmaOutputReader.gemma_pred_reader(test_output_prefix)
@@ -249,12 +254,20 @@ def simulation_with_num_fixed_snps(num_fixed_snps: int,
     K_related_full = 1 / sc * W_full @ W_full.T
     K_tr = 1 / sc * W_tr @ W_tr.T
     K_tr_te = 1 / sc * W_tr @ W_tr.T
-    sigmas, error_te = bslmm_train_test(geno_x_tr, geno_x_te, pheno_tr,
-                                        pheno_te, K_tr, K_related_full)
+    sigmas, error_te, bslmm_sigma = bslmm_train_test(
+        geno_x_tr,
+        geno_x_te,
+        pheno_tr,
+        pheno_te,
+        relatedness_tr=K_tr,
+        relatedness_full=K_related_full)
 
     print('\n####Finished Training####\n', 'sigmas: ', sigmas,
-          '  test_error: ', error_te)
+          '  test_error: ', error_te, ' bslmm_sigma:', bslmm_sigma)
 
+    # using bslmm calculated sigma
+    assert (len(sigmas) == len(bslmm_sigma))
+    sigmas = bslmm_sigma
     CV_error, H_cv = gemma_cross_validation(geno_tr,
                                             pheno_tr,
                                             K_relatedness=K_tr,
@@ -294,10 +307,15 @@ def simulation_with_all_snps(geno_tr: pd.DataFrame,
                              pheno_te: np.ndarray,
                              nfolds=10):
 
-    sigmas, error_te = bslmm_train_test(geno_tr, geno_te, pheno_tr, pheno_te)
+    sigmas, error_te, bslmm_sigma = bslmm_train_test(geno_tr, geno_te,
+                                                     pheno_tr, pheno_te)
 
     print('\n####Finished Training####\n', 'sigmas: ', sigmas,
-          '  test_error: ', error_te)
+          '  test_error: ', error_te, '  bslmm_sigma:', bslmm_sigma)
+
+    # using bslmm calculated sigma
+    assert (len(sigmas) == len(bslmm_sigma))
+    sigmas = bslmm_sigma
 
     CV_error, H_cv = gemma_cross_validation(geno_tr, pheno_tr, nfolds=nfolds)
     print('\n####Finished Cross-validation####\n', 'CV error: ', CV_error)

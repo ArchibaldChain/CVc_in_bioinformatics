@@ -17,7 +17,7 @@ if __name__ == "__main__":
     bimbam_tr_x = bimbam_tr[:n_large_effects]
     bimbam_te_x = bimbam_te[:n_large_effects]
 
-    K = bimbam.get_K()
+    K = bimbam.Relatedness
 
     bimbam_full, pheno_full_tmp = \
         Bimbam.test_data_parperation(bimbam_tr_x.to_dataframe(),

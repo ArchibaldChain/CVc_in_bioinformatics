@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
-# from bslmm_simulation.bimbam import data_spliter
+import warnings
 
 
 class Bimbam(object):
@@ -39,7 +39,7 @@ class Bimbam(object):
                         small_effect=1):
 
         if self.pheno is not None:
-            Warning.warn("You have esixted Phenotypes")
+            warnings.warn("You have esixted Phenotypes")
 
         if self._beta is None:
             # Get Beta
