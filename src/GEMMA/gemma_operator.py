@@ -456,18 +456,19 @@ class GemmaOutputReader:
         mask = bv != 'NA'
         bv = bv[mask].astype('float')
 
-        try:
-            gamma = pd.read_csv(file_list[1], sep='\t', index_col=False)
-        except Exception as e:
-            print(e)
-            gamma = None
-        else:
-            try:
-                gamma = gamma.drop('Unnamed: 300', axis=1)
-            except KeyError as e:
-                print(e)
-            except Exception as e:
-                raise e
+        gamma = None
+        # try:
+        #     gamma = pd.read_csv(file_list[1], sep='\t', index_col=False)
+        # except Exception as e:
+        #     print(e)
+        #     gamma = None
+        # else:
+        #     try:
+        #         gamma = gamma.drop('Unnamed: 300', axis=1)
+        #     except KeyError as e:
+        #         print(e)
+        #     except Exception as e:
+        #         raise e
 
         hyperparameter = pd.read_csv(file_list[2], sep='\t', index_col=False)
 

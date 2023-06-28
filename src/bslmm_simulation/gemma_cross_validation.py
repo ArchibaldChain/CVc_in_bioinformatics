@@ -177,10 +177,13 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
             K_k_minusk = 1 / p * X_k @ X_minus_k.T
 
             # getting error for k fold and sigma estimates
-            sigmas, error_k = bslmm_train_test(geno_minus_k, geno_k,
-                                               pheno_minus_k, pheno_k,
-                                               f"cv_{rand_num}_{k}th_fold_tr",
-                                               f"cv_{rand_num}_{k}th_fold_te")
+            sigmas, error_k, bslmm_sigma = bslmm_train_test(
+                geno_minus_k, geno_k, pheno_minus_k, pheno_k,
+                f"cv_{rand_num}_{k}th_fold_tr", f"cv_{rand_num}_{k}th_fold_te")
+
+            # using bslmm calculated sigmas
+            sigmas = bslmm_sigma
+
             # creating the Variance for minus-k folds and for k minus-k folds
             V_minus_k = sigmas[0] * K_kk + sigmas[1] * np.identity(n_minus_k)
         else:
@@ -189,11 +192,13 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
                                                             ind_minus_k_fold]
 
             # getting error for k fold and sigma estimates
-            sigmas, error_k = bslmm_train_test(geno_minus_k, geno_k,
-                                               pheno_minus_k, pheno_k,
-                                               f"cv_{rand_num}_{k}th_fold_tr",
-                                               f"cv_{rand_num}_{k}th_fold_te",
-                                               K_k_minusk, K_relatedness)
+            sigmas, error_k, bslmm_sigma = bslmm_train_test(
+                geno_minus_k, geno_k, pheno_minus_k, pheno_k,
+                f"cv_{rand_num}_{k}th_fold_tr", f"cv_{rand_num}_{k}th_fold_te",
+                K_k_minusk, K_relatedness)
+
+            # using bslmm calculated sigma
+            sigmas = bslmm_sigma
 
             G_temp = 1 / p * X_minus_k @ X_minus_k.T
             # creating the Variance for minus-k folds and for k minus-k folds
