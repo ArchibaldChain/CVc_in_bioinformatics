@@ -187,9 +187,8 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
             # creating the Variance for minus-k folds and for k minus-k folds
             V_minus_k = sigmas[0] * K_kk + sigmas[1] * np.identity(n_minus_k)
         else:
-            K_kk = K_relatedness
-            K_k_minusk = K_relatedness[ind_minus_k_fold, :][:,
-                                                            ind_minus_k_fold]
+            K_kk = K_relatedness[ind_minus_k_fold, :][:, ind_minus_k_fold]
+            K_k_minusk = K_relatedness[ind_k_fold, :][:, ind_minus_k_fold]
 
             # getting error for k fold and sigma estimates
             sigmas, error_k, bslmm_sigma = bslmm_train_test(
