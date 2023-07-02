@@ -37,7 +37,6 @@ def get_folds_indices(nfolds, n_tr):
 
     else:
         raise Exception("Number of folds is larger than numer of samples")
-    print('First 5 fold indices : {}'.format(folds_indices[:5]))
     return folds_indices
 
 
@@ -74,9 +73,11 @@ def timing(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
-        print('\n--- start function ' + func.__name__, '---')
+        print('\n----- start ' + func.__name__, '-----')
         result = func(*args, **kwargs)
-        print('------ {:.4f} seconds -----\n'.format(time.time() - start_time))
+        print('--- Finish {} in {:.4f} seconds ---\n'.format(
+            func.__name__,
+            time.time() - start_time))
         return result
 
     return wrapper

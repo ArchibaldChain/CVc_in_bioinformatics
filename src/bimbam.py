@@ -1,3 +1,4 @@
+import time
 from typing import Union, Tuple
 import numpy as np
 import pandas as pd
@@ -33,10 +34,12 @@ class Bimbam(object):
         self.mean_Y = None
         self.sd_Y = None
 
+    # simulat SNP effects to generate phenotype
     def pheno_simulator(self,
                         num_large_effect=10,
                         large_effect=400,
-                        small_effect=1):
+                        small_effect=1,
+                        heritability=0.5):
 
         if self.pheno is not None:
             warnings.warn("You have esixted Phenotypes")
@@ -47,38 +50,70 @@ class Bimbam(object):
             beta_large = np.random.normal(0, np.sqrt(large_effect), d)
             n = len(self.bimbam_data)
             beta_small = np.random.normal(0, np.sqrt(small_effect), n - d)
-            beta = np.concatenate([beta_large, beta_small])
+            self._beta = np.concatenate([beta_large, beta_small])
         else:
-            beta = self._beta
+            warnings.warn("Using the existed SNP effects")
 
         # Shufftle the data
         self.bimbam_data = self.bimbam_data.sample(len(self.bimbam_data),
                                                    replace=False)
+        return self.pheno_generator(heritability)
 
+    # using the current SNPs effects to regenerate the phenotype
+    def pheno_generator(self, heritability=0.5):
         # calculate the sigma_e2
         SNP = self.bimbam_data.drop(['major', 'minor', 'POS'],
                                     axis=1,
                                     inplace=False).T
         SNP.head()
-        temp = SNP.values @ beta
+        temp = SNP.values @ self._beta
         sigma_g2 = np.var(temp, ddof=1)  # get the overall variance
-        h2 = 0.5  # heritability
+        h2 = heritability  # heritability
         sigma_e2 = sigma_g2 * (1 - h2) / h2
         print("Phenotype generated with sigma_g2: {:.5}, and sigma_e2: {:.5}".
               format(sigma_g2, sigma_e2))
 
         # simulate beta_0 and calculate y
         residual = np.random.normal(0, np.sqrt(sigma_e2), len(SNP))
-        Y = SNP.values @ beta + residual
+        Y = SNP.values @ self._beta + residual
 
         if self.mean_Y is None and self.sd_Y is None:
             self.mean_Y = np.mean(Y)
             self.sd_Y = np.std(Y)
 
         pheno = (Y - self.mean_Y) / self.sd_Y
-        self._beta = beta
         self.pheno = pheno
         return pheno
+
+    # generate random samples
+    def fake_sample_generate(self,
+                             n_samples: int,
+                             heritability=0.5,
+                             seed: Union[int, None] = None):
+        if seed is not None:
+            np.random.seed(seed)
+        random_SNP = np.random.choice([0, 1, 2], [self._p, n_samples])
+        random_SNP_df = pd.DataFrame(random_SNP)
+
+        temp_info = self.info.reset_index(inplace=False, drop=True)
+        random_bimbam_df = pd.concat([temp_info, random_SNP_df], axis=1)
+
+        new_bimbam = Bimbam(random_bimbam_df)
+        new_bimbam.beta = self.beta
+        new_bimbam.mean_Y = self.mean_Y
+        new_bimbam.sd_Y = self.sd_Y
+        new_bimbam.pheno_generator(heritability)
+        return new_bimbam
+
+    # resample from the samples
+    def resample(self, n_samples, replace=True, seed=None):
+        if seed is not None:
+            np.random.seed(seed)
+        indices = np.random.choice(np.arange(0, self.n),
+                                   n_samples,
+                                   replace=replace)
+
+        return self.iloc_Samples[indices]
 
     def to_dataframe(self) -> pd.DataFrame:
         return self.bimbam_data
@@ -91,6 +126,19 @@ class Bimbam(object):
         self.split_index = (train_idx, test_idx)
         return self.iloc_Samples[train_idx], self.iloc_Samples[test_idx]
 
+    def create_relatedness_with(self, other_bimbam: 'Bimbam'):
+        if not isinstance(other_bimbam, Bimbam):
+            raise TypeError('other_bimbam must be a Bimbam instance')
+        if self.p != other_bimbam.p:
+            raise ValueError(
+                'The bimbam matrix should have the same number of SNPs')
+        start_time = time.time()
+        print(self.SNPs.dtype, other_bimbam.SNPs.dtype)
+        temp = (self.SNPs @ other_bimbam.SNPs.T)
+        print(temp.dtype, temp.shape)
+        print(f'Calulation using time: {time.time() - start_time}')
+        return (1 / self.p) * temp
+
     class _IlocSamples:
         def __init__(self, bimbam: 'Bimbam'):
             self.bimbam = bimbam
@@ -99,11 +147,22 @@ class Bimbam(object):
             data = self.bimbam.bimbam_data.iloc[:, 3:]
             bimbam_data = pd.concat([self.bimbam.info, data.iloc[:, indices]],
                                     axis=1)
-            new_bimbam = Bimbam(bimbam_data, self.bimbam.pheno)
+            new_bimbam = Bimbam(bimbam_data, self.bimbam.pheno[indices])
             new_bimbam.beta = self.bimbam.beta
             new_bimbam.mean_Y = self.bimbam.mean_Y
             new_bimbam.sd_Y = self.bimbam.sd_Y
             return new_bimbam
+
+    @property
+    def iloc_Samples(self):
+        return self._IlocSamples(self)
+
+    def __getitem__(self, SNP_index):
+        new_bimbam = Bimbam(self.bimbam_data.iloc[SNP_index, :], self.pheno)
+        new_bimbam.beta = self.beta[SNP_index]
+        new_bimbam.sd_Y = self.sd_Y
+        new_bimbam.sd_Y = self.sd_Y
+        return new_bimbam
 
     @property
     def shape(self):
@@ -129,24 +188,20 @@ class Bimbam(object):
 
     @beta.setter
     def beta(self, beta: Union[None, np.ndarray]):
-        assert (beta is None) or (len(beta) == self.p)
-        print(type(beta))
-        self._beta = beta
-
-    @property
-    def iloc_Samples(self):
-        return self._IlocSamples(self)
-
-    def __getitem__(self, SNP_index):
-        new_bimbam = Bimbam(self.bimbam_data.iloc[SNP_index, :], self.pheno)
-        new_bimbam.beta = self.beta[SNP_index]
-        new_bimbam.sd_Y = self.sd_Y
-        new_bimbam.sd_Y = self.sd_Y
-        return new_bimbam
+        assert (beta is None) or (len(beta) == self.p), f'Incorrect beta'
+        if isinstance(beta, np.ndarray):
+            self._beta = beta.copy()
+        else:
+            self._beta = beta
 
     @property
     def SNPs(self):
-        return self.bimbam_data.iloc[:, 3:].to_numpy().T
+        _SNPs = self.bimbam_data.iloc[:, 3:].to_numpy().T
+        if not (str(_SNPs.dtype).startswith('int')
+                or str(_SNPs.dtype).startswith('float')):
+            raise AttributeError(
+                f'The attribute type is not supported {_SNPs.dtype}')
+        return _SNPs
 
     @property
     def Relatedness(self):
@@ -220,3 +275,5 @@ if __name__ == "__main__":
     print(type(tr), type(te))
     print(tr.shape, te.shape)
     print(tr.p, tr.n, te.p, te.n, bimbam.p, bimbam.n)
+    print(bimbam.iloc_Samples[3:20].shape)
+    print(bimbam.fake_sample_generate(20).to_dataframe)
