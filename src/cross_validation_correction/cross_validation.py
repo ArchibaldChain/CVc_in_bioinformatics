@@ -200,7 +200,6 @@ class CrossValidation:
             if K_mode == 'train':
                 K = bimbam.Relatedness
             else:
-                a = time.time()
                 K = bimbam.create_relatedness_with(self.data_bimbam)
         else:
             bimbam_fixed = bimbam
@@ -281,8 +280,11 @@ def _test_correcting_gls(bimbam: Bimbam):
 def _test_correcting_blup(bimbam: Bimbam):
     bimbam_tr, bimbam_te = bimbam.train_test_split()
     gls = BestLinearUnbiasedPredictor(alpha=10)
-    cv_blup = CrossValidation(gls, 10, True, sigmas=[0.5, 0.5])
-    re = cv_blup(bimbam_tr, slice(0, 100), var_methdod='fast_lmm')
+    cv_blup = CrossValidation(gls, 10, True)
+    re = cv_blup(bimbam_tr,
+                 slice(0, 100),
+                 var_methdod='fast_lmm',
+                 sigmas=[0.5, 0.5])
     re['w_te'] = cv_blup.correct(bimbam_te)
     print(re)
     re['mse_te'] = CrossValidation.mean_square_error(

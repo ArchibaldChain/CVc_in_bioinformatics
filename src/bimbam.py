@@ -133,10 +133,8 @@ class Bimbam(object):
             raise ValueError(
                 'The bimbam matrix should have the same number of SNPs')
         start_time = time.time()
-        print(self.SNPs.dtype, other_bimbam.SNPs.dtype)
         temp = (self.SNPs @ other_bimbam.SNPs.T)
-        print(temp.dtype, temp.shape)
-        print(f'Calulation using time: {time.time() - start_time}')
+        print(f'Calulation for K_te_tr using time: {time.time() - start_time}')
         return (1 / self.p) * temp
 
     class _IlocSamples:
