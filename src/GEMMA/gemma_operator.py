@@ -5,9 +5,12 @@ import os
 import shutil
 
 command = "./gemma-0.98.5"
+if not os.path.exists(command):
+    raise FileNotFoundError('gemma-0.98.5 operation not found')
+
 temp_dir = '.temp_dir'
 os.system("chmod +x " + command)
-print(os.getcwd())
+# print(os.getcwd())
 
 
 def gemma_bslmm_train(train_data,

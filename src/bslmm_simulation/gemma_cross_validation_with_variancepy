@@ -86,18 +86,10 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
         gor = GemmaOutputReader(geno_tr, train_output_prefix, relatedness_tr)
         s_a, s_b = gor.get_var_component()
         bslmm_sigma = [s_a * (gor.pi**2) * s_e, s_b * s_e, s_e]
-        print(s_e, s_a, s_b)
         if len(sigmas) == 3:
             tb = traceback.format_exc()
             warnings.warn(
                 f'Incorrect sigma number detected. sigmas = {sigmas} \n' + tb)
-
-    # check if bslmm_sigma has nan
-    if np.any(np.isnan(bslmm_sigma)):
-        warnings.warn(
-            f'There is nan in bslmm_sigma: {bslmm_sigma} and s_a={s_a}, s_b={s_b}, s_e={s_e}, gor.pi={gor.pi}\n'
-            + 'changing bslmm_sigma to sigmas')
-        bslmm_sigma = sigmas
 
     # get the test prediction
     pheno_te_pred = GemmaOutputReader.gemma_pred_reader(test_output_prefix)
@@ -190,7 +182,7 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
                 f"cv_{rand_num}_{k}th_fold_tr", f"cv_{rand_num}_{k}th_fold_te")
 
             # using bslmm calculated sigmas
-            sigmas = bslmm_sigma
+            # sigmas = bslmm_sigma
 
             # creating the Variance for minus-k folds and for k minus-k folds
             V_minus_k = sigmas[0] * K_kk + sigmas[1] * np.identity(n_minus_k)
@@ -202,10 +194,10 @@ def gemma_cross_validation(geno_tr: pd.DataFrame,
             sigmas, error_k, bslmm_sigma = bslmm_train_test(
                 geno_minus_k, geno_k, pheno_minus_k, pheno_k,
                 f"cv_{rand_num}_{k}th_fold_tr", f"cv_{rand_num}_{k}th_fold_te",
-                K_kk, K_relatedness)
+                K_k_minusk, K_relatedness)
 
             # using bslmm calculated sigma
-            sigmas = bslmm_sigma
+            # sigmas = bslmm_sigma
 
             G_temp = 1 / p * X_minus_k @ X_minus_k.T
             # creating the Variance for minus-k folds and for k minus-k folds
@@ -278,8 +270,8 @@ def simulation_with_num_fixed_snps(num_fixed_snps: int,
           '  test_error: ', error_te, ' bslmm_sigma:', bslmm_sigma)
 
     # using bslmm calculated sigma
-    assert (len(sigmas) == len(bslmm_sigma))
-    sigmas = bslmm_sigma
+    # assert (len(sigmas) == len(bslmm_sigma))
+    # sigmas = bslmm_sigma
     CV_error, H_cv = gemma_cross_validation(geno_tr,
                                             pheno_tr,
                                             K_relatedness=K_tr,
@@ -326,8 +318,8 @@ def simulation_with_all_snps(geno_tr: pd.DataFrame,
           '  test_error: ', error_te, '  bslmm_sigma:', bslmm_sigma)
 
     # using bslmm calculated sigma
-    assert (len(sigmas) == len(bslmm_sigma))
-    sigmas = bslmm_sigma
+    # assert (len(sigmas) == len(bslmm_sigma))
+    # sigmas = bslmm_sigma
 
     CV_error, H_cv = gemma_cross_validation(geno_tr, pheno_tr, nfolds=nfolds)
     print('\n####Finished Cross-validation####\n', 'CV error: ', CV_error)
