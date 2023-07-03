@@ -4,9 +4,12 @@
 .Ruserdata
 *.vcf
 *.csv
+*.txt
+./.temp_dir/
 ./data/
 ./bimbam_data/
 */__pycache__/*
 *.pyc
+./output/
 
 
