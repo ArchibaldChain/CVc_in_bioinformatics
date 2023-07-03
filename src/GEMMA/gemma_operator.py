@@ -45,7 +45,7 @@ def gemma_bslmm_train(train_data,
     if not os.path.exists(phenotype_file):
         raise FileNotFoundError(f"Could not find {phenotype_file}")
 
-    print('\n>>> GEMMA Train:')
+    print('\n>>> GEMMA BSLMM Train:')
     if related_matrix is None:
         print(command +
               f" -g {train_file} -p {phenotype_file} -o {prefix} -bslmm 1")
@@ -115,7 +115,7 @@ def gemma_bslmm_test(test_data,
     emu = os.path.join(train_output_path, train_prefix + ".log.txt")
     ebv = os.path.join(train_output_path, train_prefix + ".bv.txt")
 
-    print('\n>>> GAMMA Predict:')
+    print('\n>>> GAMMA BSLMM Predict:')
     if related_matrix is None:
         print(
             command +
@@ -305,7 +305,7 @@ def gemma_lmm_train(train_data,
     if not os.path.exists(phenotype_file):
         raise FileNotFoundError(f"Could not find {phenotype_file}")
 
-    print('\n>>> GEMMA Train:')
+    print('\n>>> GEMMA LMM:')
     if related_matrix is None:
         excute_command = command +\
               f" -g {train_file} -p {phenotype_file} -o {prefix} -lmm 1"

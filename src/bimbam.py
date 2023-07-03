@@ -70,8 +70,8 @@ class Bimbam(object):
         sigma_g2 = np.var(temp, ddof=1)  # get the overall variance
         h2 = heritability  # heritability
         sigma_e2 = sigma_g2 * (1 - h2) / h2
-        print("Phenotype generated with sigma_g2: {:.5}, and sigma_e2: {:.5}".
-              format(sigma_g2, sigma_e2))
+        print("Phenotype generated with s_g2: {:.2}, and s_e2: {:.2}".format(
+            sigma_g2, sigma_e2))
 
         # simulate beta_0 and calculate y
         residual = np.random.normal(0, np.sqrt(sigma_e2), len(SNP))

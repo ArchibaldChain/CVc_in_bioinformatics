@@ -66,7 +66,7 @@ class CrossValidation:
 
         # calculating the variance when correcting or using GLS BLUP
         elif (self.is_correcting) or \
-            (not isinstance(self.model, OrdinaryLeastRegressor)):
+            (self.model.if_needs_sigmas):
             if indices_fixed_effects is not None:
                 bimbam_shuffled_fixed = bimbam_shuffled[indices_fixed_effects]
                 K_all = bimbam_shuffled.Relatedness
@@ -76,8 +76,9 @@ class CrossValidation:
 
             if self.var_method == 'gemma_lmm':
                 from GEMMA import gemma_operator as gemma
-                sigmas = gemma.gemma_lmm_train(bimbam_shuffled,
-                                               bimbam_shuffled.pheno)
+                sigmas = gemma.gemma_lmm_train(bimbam_shuffled.to_dataframe(),
+                                               bimbam_shuffled.pheno,
+                                               related_matrix=K_all)
             else:
                 sigmas = BaseRegressor.var_components_estimate(
                     bimbam_shuffled_fixed.SNPs, bimbam_shuffled_fixed.pheno,
@@ -85,7 +86,7 @@ class CrossValidation:
 
         else:
             sigmas = None
-
+        print('sigmas: ', sigmas)
         self.sigmas = sigmas
 
         # 3. Create a H_cv matrix if correcting

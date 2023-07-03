@@ -15,9 +15,9 @@ class BaseRegressor(ABC):
         self.alpha = kwargs['alpha'] if 'alpha' in kwargs else 0
         self.l1_ratio = kwargs['l1_ratio'] if 'l1_ratio' in kwargs else 0
 
-        assert self.alpha >= 0, f'{self.alpha=} must be greater than 0'
+        assert self.alpha >= 0, f'alpha={self.alpha} must be greater than 0'
         self.alpha = self.alpha
-        assert 0 <= self.l1_ratio <= 1, f'{self.l1_ratio=} should betwen 0 and 1'
+        assert 0 <= self.l1_ratio <= 1, f'l1_ratio={self.l1_ratio} should betwen 0 and 1'
         self.using_sklearn = (self.l1_ratio != 0 and self.alpha != 0)
 
     @abstractmethod
@@ -109,11 +109,20 @@ class BaseRegressor(ABC):
         sigmas = (fast.sigma_g2, fast.sigma_e2)
         return sigmas
 
+    @property
+    @abstractmethod
+    def if_needs_sigmas(self):
+        raise NotImplementedError()
+
 
 # Ordinary linear regression (OLS)
 class OrdinaryLeastRegressor(BaseRegressor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @property
+    def if_needs_sigmas(self):
+        return False
 
     def fit(self, X: np.ndarray, y: np.ndarray, K=None, **kwargs):
         super().fit(X, y, K, **kwargs)
@@ -143,7 +152,7 @@ class OrdinaryLeastRegressor(BaseRegressor):
         return X_te @ self.mid_matrix
 
     def __str__(self):
-        return f'Using Ordinary Least Square (OLS) with alpha={alpha}, l1_ratio={self.l1_ratio}'
+        return f'Ordinary Least Square (OLS) with alpha={alpha}, l1_ratio={self.l1_ratio}'
 
 
 # generalized least squares (GLS)
@@ -153,6 +162,10 @@ class GeneralizedLeastRegressor(BaseRegressor):
         if self.using_sklearn:
             raise NotImplementedError(
                 'GLS is not supported for l1 regularization.')
+
+    @property
+    def if_needs_sigmas(self):
+        return True
 
     def fit(self, X: np.ndarray, y: np.ndarray, K: Union[np.ndarray, None],
             **kwargs):
@@ -179,6 +192,9 @@ class GeneralizedLeastRegressor(BaseRegressor):
     def generate_h_te(self, X_te, K_te_tr=None):
         super().generate_h_te(X_te, K_te_tr)
         return X_te @ self.mid_matrix
+
+    def __str__(self):
+        return f'Generalized Least Square (GLS) with alpha={alpha}, l1_ratio={self.l1_ratio}'
 
 
 # best linear unbiased prediction (BLUP)
@@ -208,6 +224,9 @@ class BestLinearUnbiasedPredictor(GeneralizedLeastRegressor):
         return (super().generate_h_te(X_te, K_te_tr) +
                 self.sigmas[0] * self.K_te_tr @ self.V_inv
                 @ (np.identity(self.X.shape[0]) - self.X @ self.mid_matrix))
+
+    def __str__(self):
+        return f'Best Linear Unbiased Prediction (BLUP) with alpha={alpha}, l1_ratio={self.l1_ratio}'
 
 
 if __name__ == '__main__':

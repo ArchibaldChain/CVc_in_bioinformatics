@@ -2,9 +2,11 @@
 .Rhistory
 .RData
 .Ruserdata
-.vcf
-.csv
+*.vcf
+*.csv
 ./data/
 ./bimbam_data/
+*/__pycache__/*
+*.pyc
 
 

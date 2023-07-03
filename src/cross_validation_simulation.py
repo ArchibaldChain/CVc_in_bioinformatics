@@ -9,6 +9,7 @@ from utils import timing
 from cross_validation_correction.cross_validation import CrossValidation
 from cross_validation_correction.methods import *
 from arguments import get_args
+from bimbam import Bimbam
 
 class_dict = {
     'ols': OrdinaryLeastRegressor,
@@ -25,12 +26,22 @@ def create_method(class_name, **kwargs):
 
 
 def create_filename(save_path, method, num_large_effect, num_fixed_snps,
-                    if_correcting):
-    if if_correcting:
+                    is_correcting, alpha, l1_ratio):
+    os.makedirs(save_path, exist_ok=True)
+    if is_correcting:
         temp = 'correction'
     else:
         temp = ''
-    filename = f'{method}_cv_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_largeEffect.csv'
+    if alpha == 0:
+        # filename example
+        # blup_0_reg_l1_cv_correction_100_fixed_100_large.csv
+        filename = f'{method}_{alpha}_reg_cv_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
+
+    else:
+        # filename example
+        # blup_10_reg_0.00_l1_cv__100_fixed_100_large.csv
+        # blup_10_reg_0.50_l1_cv_correction_100_fixed_100_large.csv
+        filename = f'{method}_{alpha}_reg_{l1_ratio:.2f}_l1_cv_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
 
     return os.path.join(save_path, filename)
 
@@ -45,7 +56,7 @@ def cross_validation_simulation(
         large_effect=400,
         small_effect=2,
         n_folds=10,
-        if_correcting=True,
+        is_correcting=True,
         alpha=0,
         l1_ratio=1,
         method='blup'):
@@ -57,7 +68,7 @@ def cross_validation_simulation(
                                method=method,
                                num_fixed_snps=num_fixed_snps,
                                num_large_effect=num_large_effect,
-                               if_correcting=if_correcting)
+                               is_correcting=is_correcting)
 
     regressor = create_method(method, alpha=alpha, l1_ratio=l1_ratio)
     for i in range(simulation_times):
@@ -72,22 +83,23 @@ def cross_validation_simulation(
         cv = CrossValidation(
             regressor,
             n_folds=n_folds,
-            if_correcting=if_correcting,
+            is_correcting=is_correcting,
+            var_method='gemma_lmm',
         )
-        re = cv(bimbam_tr,
-                slice(0, 100),
-                var_methdod='gemma_lmm',
-                indices_fixed_effects=slice(0, num_fixed_snps))
+        re = cv(bimbam_tr, indices_fixed_effects=slice(0, num_fixed_snps))
         print('Finished cross-validation')
-        # create the correction and test error
-        re['w_te'] = cv.correct(bimbam_te)
+        # testing
         re['mse_te'] = CrossValidation.mean_square_error(
             cv.predict(bimbam_te), bimbam_te.pheno)
         bimbam_fake = bimbam_tr.fake_sample_generate(bimbam_te.n)
-        re['w_fake'] = cv.correct(bimbam_fake)
         re['mes_fake'] = CrossValidation.mean_square_error(
             cv.predict(bimbam_fake), bimbam_fake.pheno)
-        re['w_resample'] = cv.correct(bimbam_tr.resample(bimbam_te.n))
+
+        # create the correction
+        if is_correcting:
+            re['w_fake'] = cv.correct(bimbam_fake)
+            re['w_te'] = cv.correct(bimbam_te)
+            re['w_resample'] = cv.correct(bimbam_tr.resample(bimbam_te.n))
         print(re)
 
         with FileSaver(filename) as file_saver:
@@ -109,7 +121,7 @@ class FileSaver:
         # If filename does not exist, create it
         if not os.path.isfile(self.filename) or\
             os.stat(self.filename).st_size == 0:
-            self.file = open(self.filename, 'a', newline='')
+            self.file = open(self.filename, 'w', newline='')
 
         # If filename exists, read the first line and saperate it by comma into a list, store it in a object variable header using self.read_header
         else:

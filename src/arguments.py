@@ -22,7 +22,7 @@ def get_args():
                         default='./simulation_output/bslmm_CVc')
 
     # phenotype generation related arguments
-    parser.add_argument('--num_large_effect', type=int, default=10)
+    parser.add_argument('--num_large_effect', type=int, default=100)
     parser.add_argument('--large_effect', type=float, default=400.0)
     parser.add_argument('--small_effect', type=float, default=2.0)
 
@@ -38,11 +38,15 @@ def get_args():
     parser.add_argument('--n_folds', type=int, default=10)
     parser.add_argument(
         '--correcting',
-        type=bool,
+        action='store_true',
         default=True,
         help='a boolean flag to indicate if correction is needed')
     parser.add_argument(
-        '--method'
+        '--method',
+        type=str,
+        default='blup',
+        help=
+        'The method to be used for predicting the phenotype in cross-validation.'
     )
     parser.add_argument(
         '--alpha',

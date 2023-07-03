@@ -8,30 +8,30 @@
 ##   threads        = 12
 ##   parallel type  = threaded
 ##
-## Command Line Input = ./gemma-0.98.5 -g .temp_dir/geno_tr49543 -p .temp_dir/pheno_tr49543 -o lmm_tr_output -lmm 1 -k .temp_dir/relatedness_dir49543 
+## Command Line Input = ./gemma-0.98.5 -g .temp_dir/geno_tr20514 -p .temp_dir/pheno_tr20514 -o lmm_tr_output -lmm 1 -k .temp_dir/relatedness_dir20514 
 ##
-## Date = Sun Jun 25 03:10:17 2023
+## Date = Mon Jul  3 10:47:19 2023
 ##
 ## Summary Statistics:
-## number of total individuals = 2548
-## number of analyzed individuals = 2548
+## number of total individuals = 2038
+## number of analyzed individuals = 2038
 ## number of covariates = 1
 ## number of phenotypes = 1
-## number of total SNPs/var = 200
-## number of analyzed SNPs/var = 198
-## REMLE log-likelihood in the null model = -3181.04
-## MLE log-likelihood in the null model = -3181.62
-## pve estimate in the null model = 0.541014
-## se(pve) in the null model = 0.0262919
-## vg estimate in the null model = 1.79797
-## ve estimate in the null model = 0.505152
-## beta estimate in the null model =   6.04179e-14
-## se(beta) =   0.0140803
+## number of total SNPs/var = 10000
+## number of analyzed SNPs/var = 9879
+## REMLE log-likelihood in the null model = -2510.25
+## MLE log-likelihood in the null model = -2510.83
+## pve estimate in the null model = 0.481299
+## se(pve) in the null model = 0.0323422
+## vg estimate in the null model = 1.40013
+## ve estimate in the null model = 0.500371
+## beta estimate in the null model =   -1.12979
+## se(beta) =   0.0156691
 ##
 ## Computation Time:
-## total computation time = 2.58801 min 
+## total computation time = 1.90912 min 
 ## computation time break down: 
-##      time on eigen-decomposition = 2.44686 min 
-##      time on calculating UtX = 0.0616613 min 
-##      time on optimization = 0.00349777 min 
+##      time on eigen-decomposition = 1.33411 min 
+##      time on calculating UtX = 0.318414 min 
+##      time on optimization = 0.140475 min 
 ##
