@@ -42,17 +42,17 @@ class Bimbam(object):
                         heritability=0.5):
 
         if self.pheno is not None:
-            warnings.warn("You have esixted Phenotypes")
+            warnings.warn("You esixted Phenotypes will be removed.")
 
-        if self._beta is None:
-            # Get Beta
-            d = num_large_effect
-            beta_large = np.random.normal(0, np.sqrt(large_effect), d)
-            n = len(self.bimbam_data)
-            beta_small = np.random.normal(0, np.sqrt(small_effect), n - d)
-            self._beta = np.concatenate([beta_large, beta_small])
-        else:
-            warnings.warn("Using the existed SNP effects")
+        # get beta
+        if self._beta is not None:
+            warnings.warn("Origin beta will be removed after new beta")
+
+        d = num_large_effect
+        beta_large = np.random.normal(0, np.sqrt(large_effect), d)
+        n = len(self.bimbam_data)
+        beta_small = np.random.normal(0, np.sqrt(small_effect), n - d)
+        self._beta = np.concatenate([beta_large, beta_small])
 
         # Shufftle the data
         self.bimbam_data = self.bimbam_data.sample(len(self.bimbam_data),

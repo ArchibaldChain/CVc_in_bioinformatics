@@ -36,6 +36,28 @@ def get_args():
     )
     parser.add_argument('--simulation_times', type=int, default=1000)
     parser.add_argument('--n_folds', type=int, default=10)
+    parser.add_argument(
+        '--correcting',
+        type=bool,
+        default=True,
+        help='a boolean flag to indicate if correction is needed')
+    parser.add_argument(
+        '--method'
+    )
+    parser.add_argument(
+        '--alpha',
+        type=float,
+        default=0,
+        help=
+        'alpha is the hyper-paramter for the regurization and must be non-negative.'
+    )
+    parser.add_argument(
+        '--l1-ratio',
+        type=float,
+        default=0,
+        help=
+        'l1_ratio is the hyper-paramter in Elastic Net indicating the ratio using l1 regularization. Setting 0 means no l1 regularization.'
+    )
 
     args = parser.parse_args()
     print(args)
