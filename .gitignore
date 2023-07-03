@@ -5,11 +5,12 @@
 *.vcf
 *.csv
 *.txt
-./.temp_dir/
-./data/
-./bimbam_data/
+.temp_dir
+data
+bimbam_data
+output
+sim_data
 */__pycache__/*
 *.pyc
-./output/
 
 

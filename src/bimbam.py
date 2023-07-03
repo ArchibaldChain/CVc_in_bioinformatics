@@ -85,14 +85,25 @@ class Bimbam(object):
         self.pheno = pheno
         return pheno
 
+    @property
+    def MAF(self) -> np.ndarray:
+        return np.sum(self.SNPs, axis=0) / (2 * self.n)
+
     # generate random samples
     def fake_sample_generate(self,
                              n_samples: int,
                              heritability=0.5,
-                             seed: Union[int, None] = None):
+                             seed: Union[int, None] = None,
+                             use_MAF=True):
         if seed is not None:
             np.random.seed(seed)
-        random_SNP = np.random.choice([0, 1, 2], [self._p, n_samples])
+        if use_MAF:
+            temp_p = np.tile(self.MAF, [n_samples, 1]).T
+            random_SNP = np.random.binomial(2, temp_p)
+        else:
+            random_SNP = np.random.choice([0, 1, 2], [self._p, n_samples],
+                                          [0.25, 0.5, 0.25])
+
         random_SNP_df = pd.DataFrame(random_SNP)
 
         temp_info = self.info.reset_index(inplace=False, drop=True)

@@ -58,17 +58,23 @@ def cross_validation_simulation(
         n_folds=10,
         is_correcting=True,
         alpha=0,
-        l1_ratio=1,
+        l1_ratio=0,
         method='blup'):
 
+    if is_correcting and alpha != 0 and l1_ratio != 0:
+        import warnings
+        warnings.warn('Elastic Net cannot be corrected')
+        is_correcting = False
+
     bimbam = Bimbam(bimbam_file)
-    bimbam.pheno_simulator(100)
 
     filename = create_filename(save_path=save_path,
                                method=method,
                                num_fixed_snps=num_fixed_snps,
                                num_large_effect=num_large_effect,
-                               is_correcting=is_correcting)
+                               is_correcting=is_correcting,
+                               alpha=alpha,
+                               l1_ratio=l1_ratio)
 
     regressor = create_method(method, alpha=alpha, l1_ratio=l1_ratio)
     for i in range(simulation_times):
@@ -86,7 +92,12 @@ def cross_validation_simulation(
             is_correcting=is_correcting,
             var_method='gemma_lmm',
         )
-        re = cv(bimbam_tr, indices_fixed_effects=slice(0, num_fixed_snps))
+        if num_fixed_snps == -1:
+            indices_fixed_effects = None
+        else:
+            indices_fixed_effects = slice(0, num_fixed_snps)
+        re = cv(bimbam_tr, indices_fixed_effects=indices_fixed_effects)
+
         print('Finished cross-validation')
         # testing
         re['mse_te'] = CrossValidation.mean_square_error(

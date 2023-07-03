@@ -39,7 +39,6 @@ def get_args():
     parser.add_argument(
         '--correcting',
         action='store_true',
-        default=True,
         help='a boolean flag to indicate if correction is needed')
     parser.add_argument(
         '--method',
@@ -56,7 +55,7 @@ def get_args():
         'alpha is the hyper-paramter for the regurization and must be non-negative.'
     )
     parser.add_argument(
-        '--l1-ratio',
+        '--l1_ratio',
         type=float,
         default=0,
         help=

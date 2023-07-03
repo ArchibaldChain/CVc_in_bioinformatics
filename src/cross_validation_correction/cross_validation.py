@@ -134,14 +134,18 @@ class CrossValidation:
             mses.append(mse)
 
         # 5. Calculate the prediction using y_pred_cv
+        mse = np.mean(mses)
+
         if self.is_correcting:
             self.H_cv = H_cv
             y_cv = H_cv @ bimbam_shuffled.pheno
-        mse = np.mean(mses)
-        mse_h_cv = self.mean_square_error(y_cv, bimbam_shuffled.pheno)
-        using_time = time.time() - start_time
+            mse_h_cv = self.mean_square_error(y_cv, bimbam_shuffled.pheno)
 
-        return {'cv': mse, 'cv_hcv': mse_h_cv, 'using_time': using_time}
+            using_time = time.time() - start_time
+            return {'cv': mse, 'cv_hcv': mse_h_cv, 'using_time': using_time}
+
+        using_time = time.time() - start_time
+        return {'cv': mse, 'using_time': using_time}
 
     # fitting a model with current training data or new data
     @timing
