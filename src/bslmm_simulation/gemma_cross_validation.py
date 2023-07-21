@@ -119,7 +119,7 @@ def cv_correction(geno_tr: pd.DataFrame,
     n_te = X_te.shape[0]
 
     # get data from bimbam format creating variance and covariance
-    if (K_relatedness_tr == None) or (K_relatedness_tr_te == None):
+    if (K_relatedness_tr is None) or (K_relatedness_tr_te is None):
         K_tr = 1 / p * X @ X.T
         K_te_tr = 1 / p * X_te @ X.T
     else:

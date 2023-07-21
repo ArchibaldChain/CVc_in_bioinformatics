@@ -67,12 +67,11 @@ class CrossValidation:
         # calculating the variance when correcting or using GLS BLUP
         elif (self.is_correcting) or \
             (self.model.if_needs_sigmas):
+            K_all = bimbam_shuffled.Relatedness
             if indices_fixed_effects is not None:
                 bimbam_shuffled_fixed = bimbam_shuffled[indices_fixed_effects]
-                K_all = bimbam_shuffled.Relatedness
             else:
                 bimbam_shuffled_fixed = bimbam_shuffled
-                K_all = None
 
             if self.var_method == 'gemma_lmm':
                 from GEMMA import gemma_operator as gemma
@@ -179,6 +178,9 @@ class CrossValidation:
             self.fit()
         _, K = self._fixed_snp_extraction(
             self.data_bimbam.iloc_Samples[self.shuffle_indices], 'train')
+
+        if K is None:
+            K = self.data_bimbam.Relatedness
         V = self.sigmas[0] * K + self.sigmas[1] * np.identity(K.shape[0])
 
         # calculate the first part
@@ -188,7 +190,12 @@ class CrossValidation:
 
         bimbam_fixed, K_te_tr = self._fixed_snp_extraction(
             bimbam_correct, 'test')
+
+        # generate_h_te can take None relatedness file
         h_te = self.model.generate_h_te(bimbam_fixed.SNPs, K_te_tr)
+
+        if K_te_tr is None:
+            K_te_tr = bimbam_correct.create_relatedness_with(self.data_bimbam)
         v_te_tr = self.sigmas[0] * K_te_tr
 
         # fist part minus second part

@@ -35,14 +35,18 @@ def create_filename(save_path, method, num_large_effect, num_fixed_snps,
     if alpha == 0:
         # filename example
         # blup_0_reg_l1_cv_correction_100_fixed_100_large.csv
-        filename = f'{method}_{alpha}_reg_cv_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
+        filename = f'{method}_alpha{alpha}_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
 
     else:
         # filename example
-        # blup_10_reg_0.00_l1_cv__100_fixed_100_large.csv
-        # blup_10_reg_0.50_l1_cv_correction_100_fixed_100_large.csv
-        filename = f'{method}_{alpha}_reg_{l1_ratio:.2f}_l1_cv_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
+        # ridge_blup_alpha10_correction_100_fixed_100_large.csv
+        if l1_ratio == 0:
+            filename = f'ridge_{method}_alpha{alpha}_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
+        else:
+            # enet_alpha10_0.5_l1_ratio_100_fixed_100_large.csv
+            filename = f'enet_alpha{alpha}_{l1_ratio:.2f}_l1_ratio_{temp}_{num_fixed_snps}_fixed_{num_large_effect}_large.csv'
 
+    print(filename)
     return os.path.join(save_path, filename)
 
 
@@ -102,13 +106,13 @@ def cross_validation_simulation(
         # testing
         re['mse_te'] = CrossValidation.mean_square_error(
             cv.predict(bimbam_te), bimbam_te.pheno)
-        bimbam_fake = bimbam_tr.fake_sample_generate(bimbam_te.n)
-        re['mes_fake'] = CrossValidation.mean_square_error(
-            cv.predict(bimbam_fake), bimbam_fake.pheno)
+        bimbam_gen = bimbam_tr.fake_sample_generate(bimbam_te.n)
+        re['mse_gen'] = CrossValidation.mean_square_error(
+            cv.predict(bimbam_gen), bimbam_gen.pheno)
 
         # create the correction
         if is_correcting:
-            re['w_fake'] = cv.correct(bimbam_fake)
+            re['w_gen'] = cv.correct(bimbam_gen)
             re['w_te'] = cv.correct(bimbam_te)
             re['w_resample'] = cv.correct(bimbam_tr.resample(bimbam_te.n))
         print(re)
