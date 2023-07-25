@@ -17,7 +17,13 @@ echo "load succeed"
 ####### Run your script #########################
 echo "Start to Running"
 start=$SECONDS
-python src/frequentist_simulation/simulation.py  --num_fixed_snps=100 --num_large_effect=100 --save_path=./simulation_output/frequentist_CVc/using_fastlmm_100 --simulation_times=100
+python src/frequentist_simulation/simulation.py  --num_fixed_snps=50 --save_path=./simulation_output/frequentist_CVc/using_fastlmm
+python src/frequentist_simulation/simulation.py  --num_fixed_snps=10 --save_path=./simulation_output/frequentist_CVc/using_fastlmm
+
+python src/frequentist_simulation/simulation.py  --num_fixed_snps=150 --save_path=./simulation_output/frequentist_CVc/using_fastlmm
+python src/frequentist_simulation/simulation.py  --num_fixed_snps=100 --save_path=./simulation_output/frequentist_CVc/using_fastlmm
+python src/frequentist_simulation/simulation.py  --num_fixed_snps=500 --save_path=./simulation_output/frequentist_CVc/using_fastlmm
+python src/frequentist_simulation/simulation.py  --num_fixed_snps=200 --save_path=./simulation_output/frequentist_CVc/using_fastlmm
 
 end=$SECONDS
 echo "duration: $((end-start)) seconds."
