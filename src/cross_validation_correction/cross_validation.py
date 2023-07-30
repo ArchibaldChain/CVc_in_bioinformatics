@@ -45,6 +45,8 @@ class CrossValidation:
                  **kwargs):
 
         self.data_bimbam = copy.deepcopy(training_data_bimbam)
+        if indices_fixed_effects is None:
+            indices_fixed_effects = slice(None)
         self.indices_fixed_effects = indices_fixed_effects
         start_time = time.time()
 
@@ -207,15 +209,11 @@ class CrossValidation:
         assert K_mode in ['train', 'test'], f'Invalid K mode {K_mode}.'+\
             f' It can only be train or test'
 
-        if self.indices_fixed_effects is not None:
-            bimbam_fixed = bimbam[self.indices_fixed_effects]
-            if K_mode == 'train':
-                K = bimbam.Relatedness
-            else:
-                K = bimbam.create_relatedness_with(self.data_bimbam)
+        bimbam_fixed = bimbam[self.indices_fixed_effects]
+        if K_mode == 'train':
+            K = bimbam.Relatedness
         else:
-            bimbam_fixed = bimbam
-            K = None
+            K = bimbam.create_relatedness_with(self.data_bimbam)
 
         return bimbam_fixed, K
 
@@ -280,11 +278,11 @@ def _test_correcting_gls(bimbam: Bimbam):
     print(re)
     re['mse_te'] = CrossValidation.mean_square_error(cv_gls.predict(bimbam_te),
                                                      bimbam_te.pheno)
-    bimbam_fake = bimbam_tr.fake_sample_generate(bimbam_te.n)
-    print(bimbam_fake.SNPs.dtype)
-    re['w_fake'] = cv_gls.correct(bimbam_fake)
-    re['mse_fake'] = CrossValidation.mean_square_error(
-        cv_gls.predict(bimbam_fake), bimbam_fake.pheno)
+    bimbam_gen = bimbam_tr.gen_sample_generate(bimbam_te.n)
+    print(bimbam_gen.SNPs.dtype)
+    re['w_gen'] = cv_gls.correct(bimbam_gen)
+    re['mse_gen'] = CrossValidation.mean_square_error(
+        cv_gls.predict(bimbam_gen), bimbam_gen.pheno)
     re['w_resample'] = cv_gls.correct(bimbam_tr.resample(bimbam_te.n))
     print(re)
 
@@ -301,10 +299,10 @@ def _test_correcting_blup(bimbam: Bimbam):
     print(re)
     re['mse_te'] = CrossValidation.mean_square_error(
         cv_blup.predict(bimbam_te), bimbam_te.pheno)
-    bimbam_fake = bimbam_tr.fake_sample_generate(bimbam_te.n)
-    re['w_fake'] = cv_blup.correct(bimbam_fake)
-    re['mes_fake'] = CrossValidation.mean_square_error(
-        cv_blup.predict(bimbam_fake), bimbam_fake.pheno)
+    bimbam_gen = bimbam_tr.gen_sample_generate(bimbam_te.n)
+    re['w_gen'] = cv_blup.correct(bimbam_gen)
+    re['mes_gen'] = CrossValidation.mean_square_error(
+        cv_blup.predict(bimbam_gen), bimbam_gen.pheno)
     re['w_resample'] = cv_blup.correct(bimbam_tr.resample(bimbam_te.n))
     print(re)
 

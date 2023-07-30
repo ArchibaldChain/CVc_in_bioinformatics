@@ -124,7 +124,7 @@ class OrdinaryLeastRegressor(BaseRegressor):
     def if_needs_sigmas(self):
         return False
 
-    def fit(self, X: np.ndarray, y: np.ndarray, K=None, **kwargs):
+    def fit(self, X: np.ndarray, y: np.ndarray, K, **kwargs):
         super().fit(X, y, K, **kwargs)
         if self.using_sklearn:
             from sklearn.linear_model import ElasticNet as ENET
