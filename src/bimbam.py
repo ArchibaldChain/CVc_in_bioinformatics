@@ -137,14 +137,29 @@ class Bimbam(object):
         self.split_index = (train_idx, test_idx)
         return self.iloc_Samples[train_idx], self.iloc_Samples[test_idx]
 
-    def create_relatedness_with(self, other_bimbam: 'Bimbam'):
+    def create_relatedness_with(self,
+                                other_bimbam: 'Bimbam',
+                                scale_type='centered'):
+        scale_type = ('centered', 'standardized')
+        assert scale_type in scale_type, f'scale_typle is given as{scale_type} and it has to be in' + scale_type + '.'
+
         if not isinstance(other_bimbam, Bimbam):
             raise TypeError('other_bimbam must be a Bimbam instance')
         if self.p != other_bimbam.p:
             raise ValueError(
                 'The bimbam matrix should have the same number of SNPs')
         start_time = time.time()
-        temp = (self.SNPs @ other_bimbam.SNPs.T)
+        if scale_type == 'centered':
+            mean1 = self.SNPs.mean(axis=0)
+            mean2 = other_bimbam.SNPs.mean(axis=0)
+            temp = (self.SNPs - mean1) @ (other_bimbam.SNPs - mean2).T
+        elif scale_type == 'standardized':
+            mean1 = self.SNPs.mean(axis=0)
+            sd1 = self.SNPs.std(axis=0, ddof=1)
+            mean2 = other_bimbam.SNPs.mean(axis=0)
+            sd2 = other_bimbam.SNPs.std(axis=0, ddof=1)
+            temp = ((self.SNPs - mean1) / sd1) @ (
+                (other_bimbam.SNPs - mean2) / sd2).T
         print(f'Calulation for K_te_tr using time: {time.time() - start_time}')
         return (1 / self.p) * temp
 
@@ -213,8 +228,18 @@ class Bimbam(object):
         return _SNPs
 
     @property
-    def Relatedness(self):
-        return 1 / self.p * self.SNPs @ self.SNPs.T
+    def Relatedness(self, scale_type='centered'):
+        scale_type = ('centered', 'standardized')
+        assert scale_type in scale_type, f'scale_typle is given as{scale_type} and it has to be in' + scale_type + '.'
+        if scale_type == 'centered':
+            mean = self.SNPs.mean(axis=0)
+            temp = (self.SNPs - mean) @ (self.SNPs - mean).T
+        elif scale_type == 'standardized':
+            mean = self.SNPs.mean(axis=0)
+            sd = self.SNPs.std(axis=0, ddof=1)
+            temp0 = ((self.SNPs - mean) / sd)
+            temp = temp0 @ temp0.T
+        return 1 / self.p * temp
 
     @staticmethod
     def data_spliter(data: pd.DataFrame, pheno: np.ndarray, train_idx,
