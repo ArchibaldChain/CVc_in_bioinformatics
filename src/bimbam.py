@@ -300,7 +300,17 @@ if __name__ == "__main__":
     print(W.shape)
     K = bimbam.Relatedness
     print(type(K), K.shape)
-    new_bimbam = bimbam[:10]
+    s = slice(0,0)
+    new_bimbam = bimbam[s]
+    print(type(new_bimbam.SNPs))
+    print(new_bimbam.SNPs.shape)
+
+    print(new_bimbam.SNPs.shape == (0,))
+
+
+
+
+    exit(0)
     print(new_bimbam.shape)
     print(new_bimbam.to_dataframe().index)
     print(type(new_bimbam))
