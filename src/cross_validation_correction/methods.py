@@ -7,9 +7,30 @@ import sys
 
 sys.path.append('./src')
 from utils import inv
+from GEMMA import gemma_operator as gemma
+import bimbam
 
 
 class BaseRegressor(ABC):
+
+    @abstractmethod
+    def __init__(self, **kwargs):
+        pass
+
+    @abstractmethod
+    def fit():
+        pass
+
+    @abstractmethod
+    def predict():
+        pass
+
+    @abstractmethod
+    def generate_h_te():
+        pass
+
+
+class FrequentistRegressor(BaseRegressor):
     @abstractmethod
     def __init__(self, **kwargs):
         self.alpha = kwargs['alpha'] if 'alpha' in kwargs else 0
@@ -116,7 +137,7 @@ class BaseRegressor(ABC):
 
 
 # Ordinary linear regression (OLS)
-class OrdinaryLeastRegressor(BaseRegressor):
+class OrdinaryLeastRegressor(FrequentistRegressor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -156,7 +177,7 @@ class OrdinaryLeastRegressor(BaseRegressor):
 
 
 # generalized least squares (GLS)
-class GeneralizedLeastRegressor(BaseRegressor):
+class GeneralizedLeastRegressor(FrequentistRegressor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.using_sklearn:
@@ -229,57 +250,66 @@ class BestLinearUnbiasedPredictor(GeneralizedLeastRegressor):
         return f'Best Linear Unbiased Prediction (BLUP) with alpha={alpha}, l1_ratio={self.l1_ratio}'
 
 
-if __name__ == '__main__':
+class BSLMM:
+    def __init__(self, **kwargs):
+        self.random_num = np.random.randint(1000)
+        self.train_output_prefix="bslmm_tr_output" + str(self.random_num)
+        self.test_output_prefix="bslmm_te_output" + str(self.random_num)
+        if 'sigmas' in kwargs:
+            self.sigmas = kwargs['sigmas']
+        else:
+            self.sigmas = None
+
+    def fit(self, bimbam: bimbam.Bimbam, y):
+        self.bimbam = bimbam
+        self.y = y
+        gemma.gemma_bslmm_train(bimbam.to_dataframe(), y,
+                                prefix=self.train_output_prefix)
+
+    def predict(self, bimbam_te: bimbam.Bimbam):
+        geno_df_full, pheno_full_with_NA = bimbam.Bimbam.test_data_preparation(
+            self.bimbam.to_dataframe(), bimbam_te.to_dataframe(),
+              self.y, bimbam_te.n)
+        gemma.gemma_bslmm_test(
+            geno_df_full, pheno_full_with_NA,
+            train_prefix=self.train_output_prefix ,
+            test_prefix=self.test_output_prefix )
+        
+        pheno_te_pred = gemma.GemmaOutputReader.gemma_pred_reader(
+            self.test_output_prefix)
+        
+        return pheno_te_pred
+    
+    def generate_h_te(self, bimbam_te: bimbam.Bimbam):
+        assert self.sigmas is not None, 'sigmas must be specified'
+
+        K_te_tr = bimbam_te.create_relatedness_with(self.bimbam)
+        K = self.bimbam.create_relatedness_with(self.bimbam)
+        V = self.sigmas[0] * K + self.sigmas[1] * np.identity(K.shape[0])
+        return self.sigmas[0] * K_te_tr @ inv(V) 
+
+        
+    def reset(self):
+        return BSLMM(sigmas=self.sigmas)
+
+        
+def test_BSLMM():
     from bimbam import Bimbam
     bimbam = Bimbam('./bimbam_data/bimbam_10000_full_false_major_minor.txt')
     bimbam.pheno_simulator(100)
     bimbam_tr, bimbam_te = bimbam.train_test_split()
-    bimbam_tr_x = bimbam_tr[:100]
-    bimbam_te_x = bimbam_te[:100]
-    mse = lambda y1, y2: np.sum((y1 - y2)**2) / y1.shape[0]
 
-    alpha = 100
-    # ols = OrdinaryLeastRegressor(alpha=alpha)
-    # ols.fit(bimbam_tr_x.SNPs, bimbam_tr_x.pheno, sigmas=[0.5, 0.5])
-    # y_ols_pred = ols.predict(bimbam_te_x.SNPs)
-    # print(mse(y_ols_pred, bimbam_te_x.pheno))
-    # print(ols.generate_h_te(bimbam_te_x.SNPs).shape)
+    bslmm = BSLMM(sigmas=[0.5, 0.5])
+    bslmm.fit(bimbam_tr, bimbam_tr.pheno)
+    try:
+        y=bslmm.predict(bimbam_te)
+    except FileNotFoundError as f:
+        pass
+    h_te = bslmm.generate_h_te(bimbam_te)
+    assert h_te.shape == (bimbam_te.n, bimbam_tr.n),\
+        f'Wrong shape for h_te {h_te.shape}, should be ({bimbam_te.n}, {bimbam_tr.n})'
 
-    # gls = GeneralizedLeastRegressor(alpha=alpha)
-    # gls.fit(bimbam_tr_x.SNPs,
-    #         bimbam_tr_x.pheno,
-    #         bimbam_tr.Relatedness,
-    #         sigmas=[0.5, 0.5])
-    # y_gls_pred = gls.predict(bimbam_te_x.SNPs,
-    #                          bimbam_te.create_relatedness_with(bimbam_tr))
-    # print(mse(y_gls_pred, bimbam_te_x.pheno))
-    # print(
-    #     gls.generate_h_te(bimbam_te_x.SNPs,
-    #                       bimbam_te.create_relatedness_with(bimbam_tr)).shape)
 
-    # ols = OrdinaryLeastRegressor(alpha=10, l1_ratio=0.5)
-    # ols.fit(bimbam_tr_x.SNPs, bimbam_tr_x.pheno)
-    # y_ols_pred = ols.predict(bimbam_te_x.SNPs)
-    # print(mse(y_ols_pred, bimbam_te_x.pheno))
 
-    blup = BestLinearUnbiasedPredictor(alpha=alpha)
-    blup.fit(bimbam_tr_x.SNPs,
-             bimbam_tr_x.pheno,
-             bimbam_tr.Relatedness,
-             sigmas=[0.5, 0.5])
-    y_blup_pred = blup.predict(bimbam_te_x.SNPs,
-                               bimbam_te.create_relatedness_with(bimbam_tr))
-    print(mse(y_blup_pred, bimbam_te_x.pheno))
-    print(
-        blup.generate_h_te(bimbam_te_x.SNPs,
-                           bimbam_te.create_relatedness_with(bimbam_tr)).shape)
-
-    blup = BestLinearUnbiasedPredictor(alpha=alpha)
-    blup.fit(
-        bimbam_tr_x.SNPs,
-        bimbam_tr_x.pheno,
-        #  bimbam_tr.Relatedness,
-        sigmas=[0.5, 0.5])
-    y_blup_pred = blup.predict(bimbam_te_x.SNPs)
-    print(mse(y_blup_pred, bimbam_te_x.pheno))
-    print(blup.generate_h_te(bimbam_te_x.SNPs).shape)
+if __name__ == '__main__':
+    test_BSLMM()

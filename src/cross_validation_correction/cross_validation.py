@@ -104,30 +104,43 @@ class CrossValidation:
             bimbam_shuffled_k = bimbam_shuffled.iloc_Samples[k_fold]
             bimbam_shuffled_minus_k = bimbam_shuffled.iloc_Samples[k_minus]
 
-            if indices_fixed_effects is not None:
-                snp_k_fixed = bimbam_shuffled_k[indices_fixed_effects]
-                snp_k_minus_fixed = bimbam_shuffled_minus_k[
-                    indices_fixed_effects]
-                # creating relatedness matrix for minus k flods
-                K_minus_k = bimbam_shuffled_minus_k.Relatedness
-                K_k_minusk = bimbam_shuffled_k.create_relatedness_with(
-                    bimbam_shuffled_minus_k)
+            # only for bslmm
+            if isinstance(self.model, BSLMM):
+                self.model.sigmas = sigmas
+                self.model.fit(bimbam_shuffled_minus_k, bimbam_shuffled_minus_k.pheno)
+                pheno_te_pred = self.model.predict(bimbam_shuffled_k)
+
+                mse = self.mean_square_error(pheno_te_pred, bimbam_shuffled_k.pheno)
+
+                if self.is_correcting:
+                    H_cv[k_fold, k_minus] = self.model.generate_h_te(bimbam_shuffled_k)
+
+            # models other than bslmm
             else:
-                snp_k_fixed = bimbam_shuffled_k
-                snp_k_minus_fixed = bimbam_shuffled_minus_k
-                K_minus_k = None
-                K_k_minusk = None
+                if indices_fixed_effects is not None:
+                    snp_k_fixed = bimbam_shuffled_k[indices_fixed_effects]
+                    snp_k_minus_fixed = bimbam_shuffled_minus_k[
+                        indices_fixed_effects]
+                    # creating relatedness matrix for minus k flods
+                    K_minus_k = bimbam_shuffled_minus_k.Relatedness
+                    K_k_minusk = bimbam_shuffled_k.create_relatedness_with(
+                        bimbam_shuffled_minus_k)
+                else:
+                    snp_k_fixed = bimbam_shuffled_k
+                    snp_k_minus_fixed = bimbam_shuffled_minus_k
+                    K_minus_k = None
+                    K_k_minusk = None
 
-            self.model.fit(snp_k_minus_fixed.SNPs,
-                           snp_k_minus_fixed.pheno,
-                           K_minus_k,
-                           sigmas=self.sigmas)
-            pheno_pred = self.model.predict(snp_k_fixed.SNPs, K_k_minusk)
-            mse = self.mean_square_error(pheno_pred, snp_k_fixed.pheno)
+                self.model.fit(snp_k_minus_fixed.SNPs,
+                            snp_k_minus_fixed.pheno,
+                            K_minus_k,
+                            sigmas=self.sigmas)
+                pheno_pred = self.model.predict(snp_k_fixed.SNPs, K_k_minusk)
+                mse = self.mean_square_error(pheno_pred, snp_k_fixed.pheno)
 
-            if self.is_correcting:
-                H_cv[k_fold, k_minus] = self.model.generate_h_te(
-                    snp_k_fixed.SNPs, K_k_minusk)
+                if self.is_correcting:
+                    H_cv[k_fold, k_minus] = self.model.generate_h_te(
+                        snp_k_fixed.SNPs, K_k_minusk)
 
             if mse > 100:
                 warnings.warn(
@@ -155,7 +168,11 @@ class CrossValidation:
 
         bimbam_fixed, K = self._fixed_snp_extraction(self.data_bimbam, 'train')
 
-        self.model.fit(bimbam_fixed.SNPs,
+        if isinstance(self.model, BSLMM):
+            self.model.fit(bimbam_fixed, bimbam_fixed.pheno)
+
+        else:
+            self.model.fit(bimbam_fixed.SNPs,
                        bimbam_fixed.pheno,
                        K,
                        sigmas=self.sigmas)
@@ -193,8 +210,14 @@ class CrossValidation:
         bimbam_fixed, K_te_tr = self._fixed_snp_extraction(
             bimbam_correct, 'test')
 
+        # BSLMM model
+        if isinstance(self.model, BSLMM):
+            h_te = self.model.generate_h_te(bimbam_correct)
+        
         # generate_h_te can take None relatedness file
-        h_te = self.model.generate_h_te(bimbam_fixed.SNPs, K_te_tr)
+        # other model
+        else:
+            h_te = self.model.generate_h_te(bimbam_fixed.SNPs, K_te_tr)
 
         if K_te_tr is None:
             K_te_tr = bimbam_correct.create_relatedness_with(self.data_bimbam)

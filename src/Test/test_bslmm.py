@@ -20,7 +20,7 @@ if __name__ == "__main__":
     K = bimbam.Relatedness
 
     bimbam_full, pheno_full_tmp = \
-        Bimbam.test_data_parperation(bimbam_tr_x.to_dataframe(),
+        Bimbam.test_data_preparation(bimbam_tr_x.to_dataframe(),
                                      bimbam_te_x.to_dataframe(),
                                      bimbam_tr_x.pheno,
                                      bimbam_te_x.pheno )

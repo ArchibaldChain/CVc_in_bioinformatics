@@ -14,7 +14,8 @@ from bimbam import Bimbam
 class_dict = {
     'ols': OrdinaryLeastRegressor,
     'gls': GeneralizedLeastRegressor,
-    'blup': BestLinearUnbiasedPredictor
+    'blup': BestLinearUnbiasedPredictor,
+    'bslmm': BSLMM,
 }
 
 

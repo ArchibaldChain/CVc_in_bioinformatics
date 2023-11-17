@@ -272,13 +272,13 @@ class Bimbam(object):
         return (train_bim, pheno_tr), (test_bim, pheno_te)
 
     @staticmethod
-    def test_data_parperation(geno_tr: pd.DataFrame, geno_te: pd.DataFrame,
-                              pheno_tr: np.ndarray, pheno_te: np.ndarray):
+    def test_data_preparation(geno_tr: pd.DataFrame, geno_te: pd.DataFrame,
+                              pheno_tr: np.ndarray, len_pheno_te: int):
         info = geno_tr.iloc[:, :3]
         full_bim = pd.concat([info, geno_tr.iloc[:, 3:], geno_te.iloc[:, 3:]],
                              axis=1)
         pheno_full = np.concatenate(
-            [pheno_tr, np.array(['NA'] * len(pheno_te))])
+            [pheno_tr, np.array(['NA'] * len_pheno_te)])
         return full_bim, pheno_full
 
     @staticmethod

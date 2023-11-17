@@ -38,8 +38,8 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
         # train and test
         gemma_bslmm_train(geno_tr, pheno_tr, prefix=train_output_prefix)
         # creating the full geno file for testing
-        geno_full, pheno_full_with_NA = bimbam.test_data_parperation(
-            geno_tr, geno_te, pheno_tr, pheno_te)
+        geno_full, pheno_full_with_NA = bimbam.test_data_preparation(
+            geno_tr, geno_te, pheno_tr, len(pheno_te))
         gemma_bslmm_test(geno_full,
                          pheno_full_with_NA,
                          train_prefix=train_output_prefix,
@@ -62,8 +62,8 @@ def bslmm_train_test(geno_tr: pd.DataFrame,
 
     elif relatedness_full is not None:
         # creating the full geno file for testing
-        geno_full, pheno_full_with_NA = bimbam.test_data_parperation(
-            geno_tr, geno_te, pheno_tr, pheno_te)
+        geno_full, pheno_full_with_NA = bimbam.test_data_preparation(
+            geno_tr, geno_te, pheno_tr, len(pheno_te))
         # train and test
 
         gemma_bslmm_train(geno_full,
