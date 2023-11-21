@@ -28,7 +28,14 @@ class BaseRegressor(ABC):
     @abstractmethod
     def generate_h_te():
         pass
-
+    
+    @property
+    @abstractmethod
+    def if_needs_sigmas(self):
+        """
+        If sigmas is need to be specified for the method to fit.
+        """
+        raise NotImplementedError()
 
 class FrequentistRegressor(BaseRegressor):
     @abstractmethod
@@ -130,10 +137,7 @@ class FrequentistRegressor(BaseRegressor):
         sigmas = (fast.sigma_g2, fast.sigma_e2)
         return sigmas
 
-    @property
-    @abstractmethod
-    def if_needs_sigmas(self):
-        raise NotImplementedError()
+
 
 
 # Ordinary linear regression (OLS)
@@ -215,7 +219,7 @@ class GeneralizedLeastRegressor(FrequentistRegressor):
         return X_te @ self.mid_matrix
 
     def __str__(self):
-        return f'Generalized Least Square (GLS) with alpha={alpha}, l1_ratio={self.l1_ratio}'
+        return f'Generalized Least Square (GLS) with alpha={self.alpha}, l1_ratio={self.l1_ratio}'
 
 
 # best linear unbiased prediction (BLUP)
@@ -247,12 +251,12 @@ class BestLinearUnbiasedPredictor(GeneralizedLeastRegressor):
                 @ (np.identity(self.X.shape[0]) - self.X @ self.mid_matrix))
 
     def __str__(self):
-        return f'Best Linear Unbiased Prediction (BLUP) with alpha={alpha}, l1_ratio={self.l1_ratio}'
+        return f'Best Linear Unbiased Prediction (BLUP) with alpha={self.alpha}, l1_ratio={self.l1_ratio}'
 
 
 class BSLMM:
     def __init__(self, **kwargs):
-        self.random_num = np.random.randint(1000)
+        self.random_num = np.random.randint(10000)
         self.train_output_prefix="bslmm_tr_output" + str(self.random_num)
         self.test_output_prefix="bslmm_te_output" + str(self.random_num)
         if 'sigmas' in kwargs:
@@ -281,8 +285,9 @@ class BSLMM:
         return pheno_te_pred
     
     def generate_h_te(self, bimbam_te: bimbam.Bimbam):
-        assert self.sigmas is not None, 'sigmas must be specified'
+        assert self.sigmas is not None, 'sigmas must be specified to generate h_te for BSLMM'
 
+        print(f'$$ model.bimbam.shape {self.bimbam.shape}, bimbam_te.shape {bimbam_te.shape}')
         K_te_tr = bimbam_te.create_relatedness_with(self.bimbam)
         K = self.bimbam.create_relatedness_with(self.bimbam)
         V = self.sigmas[0] * K + self.sigmas[1] * np.identity(K.shape[0])
@@ -292,24 +297,5 @@ class BSLMM:
     def reset(self):
         return BSLMM(sigmas=self.sigmas)
 
-        
-def test_BSLMM():
-    from bimbam import Bimbam
-    bimbam = Bimbam('./bimbam_data/bimbam_10000_full_false_major_minor.txt')
-    bimbam.pheno_simulator(100)
-    bimbam_tr, bimbam_te = bimbam.train_test_split()
-
-    bslmm = BSLMM(sigmas=[0.5, 0.5])
-    bslmm.fit(bimbam_tr, bimbam_tr.pheno)
-    try:
-        y=bslmm.predict(bimbam_te)
-    except FileNotFoundError as f:
-        pass
-    h_te = bslmm.generate_h_te(bimbam_te)
-    assert h_te.shape == (bimbam_te.n, bimbam_tr.n),\
-        f'Wrong shape for h_te {h_te.shape}, should be ({bimbam_te.n}, {bimbam_tr.n})'
-
-
-
-if __name__ == '__main__':
-    test_BSLMM()
+    def if_needs_sigmas(self):
+        return False

@@ -225,7 +225,7 @@ class Bimbam(object):
             raise TypeError('other_bimbam must be a Bimbam instance')
         if self.p != other_bimbam.p:
             raise ValueError(
-                'The bimbam matrix should have the same number of SNPs')
+                f'The bimbam matrix must have the same number of SNPs, i.e. self.p.shape: {self.shape}, other_bimbam.shape: {other_bimbam.shape}')
         start_time = time.time()
         if scale_type == 'centered':
             mean1 = self.SNPs.mean(axis=0)

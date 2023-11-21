@@ -96,6 +96,7 @@ def cross_validation_simulation(
             n_folds=n_folds,
             is_correcting=is_correcting,
             var_method='gemma_lmm',
+            # sigmas = [1.53,0.52] # todo
         )
         if num_fixed_snps == -1:
             indices_fixed_effects = None
@@ -176,7 +177,7 @@ class FileSaver:
         self.header = list(data_dict.keys())
 
 
-if __name__ == '__main__':
+def main():
     args = get_args()
     cross_validation_simulation(args.bimbam_path, args.save_path,
                                 args.num_fixed_snps, args.simulation_times,
@@ -184,3 +185,6 @@ if __name__ == '__main__':
                                 args.small_effect, args.n_folds,
                                 args.correcting, args.alpha, args.l1_ratio,
                                 args.method)
+
+if __name__ == '__main__':
+    main()

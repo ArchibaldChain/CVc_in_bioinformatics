@@ -76,12 +76,14 @@ class CrossValidation:
                 bimbam_shuffled_fixed = bimbam_shuffled
 
             if self.var_method == 'gemma_lmm':
+                print('##Estimating variance components (sigmas) using gemma')
                 from GEMMA import gemma_operator as gemma
                 sigmas = gemma.gemma_lmm_train(bimbam_shuffled.to_dataframe(),
                                                bimbam_shuffled.pheno,
                                                related_matrix=K_all)
             else:
-                sigmas = BaseRegressor.var_components_estimate(
+                print('##Estimating variance components (sigmas) using FrequentistRegressor')
+                sigmas = FrequentistRegressor.var_components_estimate(
                     bimbam_shuffled_fixed.SNPs, bimbam_shuffled_fixed.pheno,
                     K_all, self.var_method)
 
@@ -147,6 +149,8 @@ class CrossValidation:
                     f"Large MSE Detected in {self.model} {k}-th fold cv")
             mses.append(mse)
 
+            self.model = self.model.reset()
+
         # 5. Calculate the prediction using y_pred_cv
         mse = np.mean(mses)
 
@@ -167,9 +171,12 @@ class CrossValidation:
         self.is_fitted = True
 
         bimbam_fixed, K = self._fixed_snp_extraction(self.data_bimbam, 'train')
+        print(f'### bimbam_fixed.shape {bimbam_fixed.shape}')
 
         if isinstance(self.model, BSLMM):
+            self.model = self.model.reset()
             self.model.fit(bimbam_fixed, bimbam_fixed.pheno)
+            print(f'### bslmm model bimbam shape: {self.model.bimbam.shape}')
 
         else:
             self.model.fit(bimbam_fixed.SNPs,
@@ -186,7 +193,10 @@ class CrossValidation:
 
         bimbam_fixed, K_te_tr = self._fixed_snp_extraction(bimbam_te, 'test')
 
-        return self.model.predict(bimbam_fixed.SNPs, K_te_tr)
+        if isinstance(self.model, BSLMM):
+            return self.model.predict(bimbam_te)
+        else:  
+            return self.model.predict(bimbam_fixed.SNPs, K_te_tr)
 
     @timing
     def correct(self, bimbam_correct: Union['Bimbam', None] = None) -> int:
@@ -212,6 +222,9 @@ class CrossValidation:
 
         # BSLMM model
         if isinstance(self.model, BSLMM):
+
+            print(f'### cv correcting self model bimbam: {self.model.bimbam.shape}')
+            print(f'### cv correcting using bimbam_correct: {bimbam_correct.shape}')
             h_te = self.model.generate_h_te(bimbam_correct)
         
         # generate_h_te can take None relatedness file

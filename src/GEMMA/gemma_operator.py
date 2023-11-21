@@ -74,9 +74,11 @@ def gemma_bslmm_train(train_data,
 
     if save_data:
         print(train_file)
-        print(os.path.exists(train_file))
-        os.remove(train_file)
-        os.remove(phenotype_file)
+        print(phenotype_file)
+        if os.path.exists(train_file):
+            os.remove(train_file)
+        if os.path.exists(phenotype_file):
+            os.remove(phenotype_file)
 
 
 def gemma_bslmm_test(test_data,
