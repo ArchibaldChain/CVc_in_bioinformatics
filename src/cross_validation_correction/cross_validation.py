@@ -117,6 +117,8 @@ class CrossValidation:
                 if self.is_correcting:
                     H_cv[k_fold, k_minus] = self.model.generate_h_te(bimbam_shuffled_k)
 
+                self.model = self.model.reset()
+
             # models other than bslmm
             else:
                 if indices_fixed_effects is not None:
@@ -149,7 +151,6 @@ class CrossValidation:
                     f"Large MSE Detected in {self.model} {k}-th fold cv")
             mses.append(mse)
 
-            self.model = self.model.reset()
 
         # 5. Calculate the prediction using y_pred_cv
         mse = np.mean(mses)

@@ -6,6 +6,70 @@ import numpy as np
 import time
 import functools
 
+import re
+from typing import List
+
+def create_new_file_with_prefix(prefix:str, files:str) -> str:
+    """
+    Create a new file with the given prefix, with a number in sequence appended to it.  The number is one higher than the highest number used in the existing files.
+
+    Parameters
+    -------
+    prefix : str
+        The prefix for the new file
+    files : str
+        The list of existing files
+
+    Returns
+    -------
+    str
+        The new prefix name
+    """
+
+    # Regular expression to match files with the given prefix and a number, ignoring the suffix
+    pattern = re.compile(f'^{prefix}(\d+)(\..+)?$')
+
+    # Find the highest number used in the existing files
+    max_number = 0
+    for file in files:
+        match = pattern.match(file)
+        if match:
+            number = int(match.group(1))
+            if number > max_number:
+                max_number = number
+
+    # Create a new file with the next number in sequence, with a generic '.txt' suffix
+    new_prefix = f'{prefix}{max_number + 1}'
+    return new_prefix
+
+# write a function that takes a list of files and a prefix, and returns all the files with the given prefix
+def get_files_with_prefix(prefix:str, files:str) -> List[str]:
+    """
+    Get all the files with the given prefix
+
+    Parameters
+    -------
+    prefix : str
+        The prefix for the new file
+    files : str
+        The list of existing files
+
+    Returns
+    -------
+    str
+        The new prefix name
+    """
+
+    # Regular expression to match files with the given prefix and a number, ignoring the suffix
+    pattern = re.compile(f'^{prefix}(\..+)?$')
+
+    final_list = []
+    for file in files:
+        match = pattern.match(file)
+        if match:
+            final_list.append(file)
+
+    return final_list
 
 def issparse(m):
     return np.sum(m == 0) > (m.shape[0] * m.shape[1] / 2)

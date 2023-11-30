@@ -9,6 +9,8 @@ sys.path.append('./src')
 from utils import inv
 from GEMMA import gemma_operator as gemma
 import bimbam
+from utils import create_new_file_with_prefix
+from utils import get_files_with_prefix
 
 
 class BaseRegressor(ABC):
@@ -256,9 +258,16 @@ class BestLinearUnbiasedPredictor(GeneralizedLeastRegressor):
 
 class BSLMM:
     def __init__(self, **kwargs):
-        self.random_num = np.random.randint(10000)
-        self.train_output_prefix="bslmm_tr_output" + str(self.random_num)
-        self.test_output_prefix="bslmm_te_output" + str(self.random_num)
+        self.output_path = './output'
+        files = os.listdir(self.output_path)
+        train_output_prefix = 'bslmm_tr_output'
+        test_output_prefix = 'bslmm_te_output'
+
+        self.train_output_prefix =\
+              create_new_file_with_prefix(train_output_prefix, files)
+        self.test_output_prefix =\
+              create_new_file_with_prefix(test_output_prefix, files)
+
         if 'sigmas' in kwargs:
             self.sigmas = kwargs['sigmas']
         else:
@@ -274,13 +283,26 @@ class BSLMM:
         geno_df_full, pheno_full_with_NA = bimbam.Bimbam.test_data_preparation(
             self.bimbam.to_dataframe(), bimbam_te.to_dataframe(),
               self.y, bimbam_te.n)
+
+        train_output_files = get_files_with_prefix(self.train_output_prefix, os.listdir(self.output_path))
+        if len(train_output_files) > 0 :
+            raise FileExistsError(
+                f'No output file with prefix {self.train_output_prefix}, BSLMM should be fitted first.')
+
         gemma.gemma_bslmm_test(
             geno_df_full, pheno_full_with_NA,
             train_prefix=self.train_output_prefix ,
             test_prefix=self.test_output_prefix )
         
-        pheno_te_pred = gemma.GemmaOutputReader.gemma_pred_reader(
+        try:
+            pheno_te_pred = gemma.GemmaOutputReader.gemma_pred_reader(
             self.test_output_prefix)
+        except FileExistsError as f:
+            print(f)
+            test_output_files = get_files_with_prefix(self.test_output_prefix, os.listdir(self.output_path))
+            print(f'bslmm prediction output file {test_output_files} not found')
+            print(f'bslmm training output file {train_output_files} not found')
+            raise f
         
         return pheno_te_pred
     
@@ -294,6 +316,20 @@ class BSLMM:
         return self.sigmas[0] * K_te_tr @ inv(V) 
 
         
+    def __del__(self):
+        print(f'Deleting the files with prefix {self.train_output_prefix} and {self.test_output_prefix}')
+        tr_files = get_files_with_prefix(self.train_output_prefix,
+                                         os.listdir(self.output_path))
+        te_files = get_files_with_prefix(self.test_output_prefix,
+                                         os.listdir(self.output_path))
+        for file in tr_files + te_files:
+            try:
+                os.remove(file)
+            except FileNotFoundError as f:
+                print(f)
+                print(f'Error: File {file} not found in {os.listdir(self.output_path)}')
+
+
     def reset(self):
         return BSLMM(sigmas=self.sigmas)
 
