@@ -273,6 +273,8 @@ class BSLMM:
         else:
             self.sigmas = None
 
+        self._is_fitted = False
+
     def fit(self, bimbam: bimbam.Bimbam, y):
         self.bimbam = bimbam
         self.y = y
@@ -285,7 +287,10 @@ class BSLMM:
               self.y, bimbam_te.n)
 
         train_output_files = get_files_with_prefix(self.train_output_prefix, os.listdir(self.output_path))
-        if len(train_output_files) > 0 :
+        if not self._is_fitted:
+            raise Exception('BSLMM is not fitted.')
+        
+        if len(train_output_files) == 0 :
             raise FileExistsError(
                 f'No output file with prefix {self.train_output_prefix}, BSLMM should be fitted first.')
 
