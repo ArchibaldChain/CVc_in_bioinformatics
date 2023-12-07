@@ -10,7 +10,6 @@ if not os.path.exists(command):
 
 temp_dir = '.temp_dir'
 os.system("chmod +x " + command)
-# print(os.getcwd())
 
 
 def gemma_bslmm_train(train_data,

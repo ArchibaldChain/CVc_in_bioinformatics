@@ -1,9 +1,9 @@
-import sklearn
 import os
 import numpy as np
 from typing import Union
 from abc import ABC, abstractmethod
 import sys
+from datetime import datetime
 
 sys.path.append('./src')
 from utils import inv
@@ -260,13 +260,9 @@ class BSLMM:
     def __init__(self, **kwargs):
         self.output_path = './output'
         files = os.listdir(self.output_path)
-        train_output_prefix = 'bslmm_tr_output'
-        test_output_prefix = 'bslmm_te_output'
-
-        self.train_output_prefix =\
-              create_new_file_with_prefix(train_output_prefix, files)
-        self.test_output_prefix =\
-              create_new_file_with_prefix(test_output_prefix, files)
+        timestamp = datetime.now().strftime("%y%m%d%H%M%S%f")
+        self.train_output_prefix = 'bslmm_tr_output' + timestamp
+        self.test_output_prefix = 'bslmm_te_output' + timestamp
 
         if 'sigmas' in kwargs:
             self.sigmas = kwargs['sigmas']
@@ -281,22 +277,32 @@ class BSLMM:
         gemma.gemma_bslmm_train(bimbam.to_dataframe(), y,
                                 prefix=self.train_output_prefix)
 
+        self.train_output_files = get_files_with_prefix(
+            self.train_output_prefix, os.listdir(self.output_path))
+            
+        print(f'BSLMM training output files {self.train_output_files}')
+        if len(self.train_output_files) == 0:
+            warnings.warn('BSLMM has not ouput')
+        
+        self._is_fitted = True
+        
+
+
     def predict(self, bimbam_te: bimbam.Bimbam):
         geno_df_full, pheno_full_with_NA = bimbam.Bimbam.test_data_preparation(
             self.bimbam.to_dataframe(), bimbam_te.to_dataframe(),
               self.y, bimbam_te.n)
 
-        train_output_files = get_files_with_prefix(self.train_output_prefix, os.listdir(self.output_path))
         if not self._is_fitted:
             raise Exception('BSLMM is not fitted.')
         
-        if len(train_output_files) == 0 :
+        if len(self.train_output_files) == 0 :
             raise FileExistsError(
                 f'No output file with prefix {self.train_output_prefix}, BSLMM should be fitted first.')
 
         gemma.gemma_bslmm_test(
             geno_df_full, pheno_full_with_NA,
-            train_prefix=self.train_output_prefix ,
+            train_prefix=self.train_output_prefix,
             test_prefix=self.test_output_prefix )
         
         try:
@@ -329,6 +335,7 @@ class BSLMM:
                                          os.listdir(self.output_path))
         for file in tr_files + te_files:
             try:
+                print(f'Removing file {file}')
                 os.remove(file)
             except FileNotFoundError as f:
                 print(f)
