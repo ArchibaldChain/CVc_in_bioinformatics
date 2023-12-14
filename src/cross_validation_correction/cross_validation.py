@@ -109,8 +109,18 @@ class CrossValidation:
             # only for bslmm
             if isinstance(self.model, BSLMM):
                 self.model.sigmas = sigmas
-                self.model.fit(bimbam_shuffled_minus_k, bimbam_shuffled_minus_k.pheno)
-                pheno_te_pred = self.model.predict(bimbam_shuffled_k)
+                try:
+                    self.model.fit(bimbam_shuffled_minus_k, bimbam_shuffled_minus_k.pheno)
+                    pheno_te_pred = self.model.predict(bimbam_shuffled_k)
+                except BSLMM.FittingFailure as f:
+                    print(f)
+                    warnings.warn(f'### Warning ###: BSLMM fitting failed in {k}-th fold cv')
+                    continue
+                except BSLMM.FittingOutputFileNotFound as fp:
+                    print(fp)
+                    warnings.warn(f'### Warning ###: BSLMM is fitted but output file is not found in {k}-th fold cv')
+                    continue
+
 
                 mse = self.mean_square_error(pheno_te_pred, bimbam_shuffled_k.pheno)
 
@@ -171,15 +181,18 @@ class CrossValidation:
     def fit(self):
         self.is_fitted = True
 
-        bimbam_fixed, K = self._fixed_snp_extraction(self.data_bimbam, 'train')
-        print(f'### bimbam_fixed.shape {bimbam_fixed.shape}')
 
         if isinstance(self.model, BSLMM):
             self.model = self.model.reset()
-            self.model.fit(bimbam_fixed, bimbam_fixed.pheno)
-            print(f'### bslmm model bimbam shape: {self.model.bimbam.shape}')
+            try:
+                self.model.fit(self.data_bimbam, self.data_bimbam.pheno)
+            except BSLMM.FittingFailure as f:
+                warnings.warn(f'BSLMM fitting failed training')
+                raise f
 
         else:
+            bimbam_fixed, K = self._fixed_snp_extraction(self.data_bimbam, 'train')
+            print(f'### bimbam_fixed.shape {bimbam_fixed.shape}')
             self.model.fit(bimbam_fixed.SNPs,
                        bimbam_fixed.pheno,
                        K,
@@ -316,7 +329,7 @@ def _test_correcting_gls(bimbam: Bimbam):
     re['mse_te'] = CrossValidation.mean_square_error(cv_gls.predict(bimbam_te),
                                                      bimbam_te.pheno)
     bimbam_gen = bimbam_tr.gen_sample_generate(bimbam_te.n)
-    print(bimbam_gen.SNPs.dtype)
+    
     re['w_gen'] = cv_gls.correct(bimbam_gen)
     re['mse_gen'] = CrossValidation.mean_square_error(
         cv_gls.predict(bimbam_gen), bimbam_gen.pheno)
