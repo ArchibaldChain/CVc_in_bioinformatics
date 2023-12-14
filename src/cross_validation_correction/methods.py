@@ -4,6 +4,7 @@ from typing import Union
 from abc import ABC, abstractmethod
 import sys
 from datetime import datetime
+import warnings
 
 sys.path.append('./src')
 from utils import inv
@@ -280,10 +281,9 @@ class BSLMM:
         self.train_output_files = get_files_with_prefix(
             self.train_output_prefix, os.listdir(self.output_path))
             
-        print(f'BSLMM training output files {self.train_output_files}')
+        print(f'BSLMM training output prefix: {self.train_output_prefix} files {self.train_output_files}')
         if len(self.train_output_files) == 0:
-            warnings.warn('BSLMM has not ouput')
-        
+            raise BSLMM.FittingFailure(f'BSLMM is fitted but no output file with prefix {self.train_output_prefix} is found.')
         self._is_fitted = True
         
 
@@ -297,8 +297,7 @@ class BSLMM:
             raise Exception('BSLMM is not fitted.')
         
         if len(self.train_output_files) == 0 :
-            raise FileExistsError(
-                f'No output file with prefix {self.train_output_prefix}, BSLMM should be fitted first.')
+            raise BSLMM.FittingOutputFileNotFound(f'No output file with prefix {self.train_output_prefix}, BSLMM should be fitted first.')
 
         gemma.gemma_bslmm_test(
             geno_df_full, pheno_full_with_NA,
@@ -312,7 +311,7 @@ class BSLMM:
             print(f)
             test_output_files = get_files_with_prefix(self.test_output_prefix, os.listdir(self.output_path))
             print(f'bslmm prediction output file {test_output_files} not found')
-            print(f'bslmm training output file {train_output_files} not found')
+            print(f'bslmm training output file {self.train_output_files} not found')
             raise f
         
         return pheno_te_pred
@@ -320,7 +319,6 @@ class BSLMM:
     def generate_h_te(self, bimbam_te: bimbam.Bimbam):
         assert self.sigmas is not None, 'sigmas must be specified to generate h_te for BSLMM'
 
-        print(f'$$ model.bimbam.shape {self.bimbam.shape}, bimbam_te.shape {bimbam_te.shape}')
         K_te_tr = bimbam_te.create_relatedness_with(self.bimbam)
         K = self.bimbam.create_relatedness_with(self.bimbam)
         V = self.sigmas[0] * K + self.sigmas[1] * np.identity(K.shape[0])
@@ -328,7 +326,7 @@ class BSLMM:
 
         
     def __del__(self):
-        print(f'Deleting the files with prefix {self.train_output_prefix} and {self.test_output_prefix}')
+        print(f'Deleting the files with prefix {self.train_output_prefix} and {self.test_output_prefix}\nfrom {os.listdir(self.output_path)}\n')
         tr_files = get_files_with_prefix(self.train_output_prefix,
                                          os.listdir(self.output_path))
         te_files = get_files_with_prefix(self.test_output_prefix,
@@ -336,10 +334,10 @@ class BSLMM:
         for file in tr_files + te_files:
             try:
                 print(f'Removing file {file}')
-                os.remove(file)
+                os.remove(os.path.join(self.output_path, file))
             except FileNotFoundError as f:
                 print(f)
-                print(f'Error: File {file} not found in {os.listdir(self.output_path)}')
+                print(f'Error: File not found in {os.listdir(self.output_path)}')
 
 
     def reset(self):
@@ -347,3 +345,14 @@ class BSLMM:
 
     def if_needs_sigmas(self):
         return False
+
+    class FittingOutputFileNotFound(Exception):
+        def __init__(self, message):
+            self.message = message
+            super().__init__(self.message)
+
+    
+    class FittingFailure(Exception):
+        def __init__(self, message):
+            self.message = message
+            super().__init__(self.message)
