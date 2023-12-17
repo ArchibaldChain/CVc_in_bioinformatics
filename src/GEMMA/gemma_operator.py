@@ -72,8 +72,6 @@ def gemma_bslmm_train(train_data,
         os.remove(related_matrix_dir)
 
     if save_data:
-        print(train_file)
-        print(phenotype_file)
         if os.path.exists(train_file):
             os.remove(train_file)
         if os.path.exists(phenotype_file):
@@ -147,8 +145,11 @@ def gemma_bslmm_test(test_data,
         os.remove(related_matrix_dir)
 
     if save_data:
-        os.remove(test_file)
-        os.remove(phenotype_file)
+        try:
+            os.remove(test_file)
+            os.remove(phenotype_file)
+        except FileNotFoundError as e:
+            print(e)
 
 
 # using gemma to estimate the variance components for each relatedness matrix.

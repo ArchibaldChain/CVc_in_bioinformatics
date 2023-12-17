@@ -280,11 +280,12 @@ class BSLMM:
 
         self.train_output_files = get_files_with_prefix(
             self.train_output_prefix, os.listdir(self.output_path))
-            
-        print(f'BSLMM training output prefix: {self.train_output_prefix} files {self.train_output_files}')
-        if len(self.train_output_files) == 0:
-            raise BSLMM.FittingFailure(f'BSLMM is fitted but no output file with prefix {self.train_output_prefix} is found.')
         self._is_fitted = True
+            
+        if len(self.train_output_files) == 0:
+            print(f'Training output not found')
+            print(f'bimbam.shape={bimbam.shape}, y.shape={y.shape}')
+            raise BSLMM.FittingFailure(f'BSLMM is fitted but no output file with prefix {self.train_output_prefix} is found.')
         
 
 
@@ -311,7 +312,6 @@ class BSLMM:
             print(f)
             test_output_files = get_files_with_prefix(self.test_output_prefix, os.listdir(self.output_path))
             print(f'bslmm prediction output file {test_output_files} not found')
-            print(f'bslmm training output file {self.train_output_files} not found')
             raise f
         
         return pheno_te_pred
@@ -326,18 +326,16 @@ class BSLMM:
 
         
     def __del__(self):
-        print(f'Deleting the files with prefix {self.train_output_prefix} and {self.test_output_prefix}\nfrom {os.listdir(self.output_path)}\n')
         tr_files = get_files_with_prefix(self.train_output_prefix,
                                          os.listdir(self.output_path))
         te_files = get_files_with_prefix(self.test_output_prefix,
                                          os.listdir(self.output_path))
         for file in tr_files + te_files:
             try:
-                print(f'Removing file {file}')
                 os.remove(os.path.join(self.output_path, file))
             except FileNotFoundError as f:
                 print(f)
-                print(f'Error: File not found in {os.listdir(self.output_path)}')
+                print(f'Error: File {file} not found in {os.listdir(self.output_path)}')
 
 
     def reset(self):

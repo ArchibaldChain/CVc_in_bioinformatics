@@ -226,7 +226,6 @@ class Bimbam(object):
         if self.p != other_bimbam.p:
             raise ValueError(
                 f'The bimbam matrix must have the same number of SNPs, i.e. self.p.shape: {self.shape}, other_bimbam.shape: {other_bimbam.shape}')
-        start_time = time.time()
         if scale_type == 'centered':
             mean1 = self.SNPs.mean(axis=0)
             mean2 = other_bimbam.SNPs.mean(axis=0)
@@ -238,7 +237,6 @@ class Bimbam(object):
             sd2 = other_bimbam.SNPs.std(axis=0, ddof=1)
             temp = ((self.SNPs - mean1) / sd1) @ (
                 (other_bimbam.SNPs - mean2) / sd2).T
-        print(f'Calulation for K_te_tr using time: {time.time() - start_time}')
         return (1 / self.p) * temp
 
     @staticmethod
